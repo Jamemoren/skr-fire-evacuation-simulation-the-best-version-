@@ -1,0 +1,11 @@
+{
+  "bodyRadius": 0.18,
+  "edges": 339,
+  "floor": 9,
+  "headroom": 1.9,
+  "issues": [],
+  "meshes": 3173,
+  "mode": "exterior",
+  "samples": 15275,
+  "spacing": 0.16
+}

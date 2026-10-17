@@ -1,0 +1,47 @@
+{
+  "name": "skr-fire-evacuation-crowd-simulation",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "start:performance": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
+    "typecheck": "tsc -b --pretty false",
+    "qa": "node scripts/qa.mjs && node scripts/qa-features.mjs && node scripts/qa-student-visibility.mjs && node scripts/qa-detailed-audit.mjs && node scripts/qa-topology.mjs && node scripts/qa-semantic-parity.mjs && node scripts/qa-thermal-routing.mjs && node scripts/qa-outdoor-detour.mjs && node scripts/qa-zigzag.mjs && node scripts/qa-survival-guard.mjs && node scripts/qa-fire-spread-limit.mjs && node scripts/qa-simulation-core.mjs && node scripts/validate-semantic-map.mjs examples/building1-semantic-map.json && node scripts/check-reachability.mjs examples/building1-semantic-map.json",
+    "validate-map": "node scripts/validate-semantic-map.mjs examples/building1-semantic-map.json",
+    "qa:core": "node scripts/qa-simulation-core.mjs",
+    "qa:topology": "node scripts/qa-topology.mjs",
+    "qa:features": "node scripts/qa-features.mjs",
+    "qa:semantic": "node scripts/qa-semantic-parity.mjs",
+    "qa:thermal": "node scripts/qa-thermal-routing.mjs",
+    "qa:detour": "node scripts/qa-outdoor-detour.mjs",
+    "qa:zigzag": "node scripts/qa-zigzag.mjs",
+    "qa:survival": "node scripts/qa-survival-guard.mjs",
+    "qa:fire-limit": "node scripts/qa-fire-spread-limit.mjs",
+    "qa:fast": "node scripts/qa.mjs && node scripts/qa-features.mjs && node scripts/qa-student-visibility.mjs && node scripts/qa-detailed-audit.mjs && node scripts/qa-topology.mjs && node scripts/qa-semantic-parity.mjs && node scripts/qa-thermal-routing.mjs && node scripts/qa-outdoor-detour.mjs && node scripts/qa-zigzag.mjs && node scripts/qa-survival-guard.mjs && node scripts/qa-fire-spread-limit.mjs && node scripts/validate-semantic-map.mjs examples/building1-semantic-map.json && node scripts/check-reachability.mjs examples/building1-semantic-map.json",
+    "qa:students": "node scripts/qa-student-visibility.mjs",
+    "qa:audit": "node scripts/qa-detailed-audit.mjs"
+  },
+  "dependencies": {
+    "@react-three/drei": "^10.7.0",
+    "@react-three/fiber": "^9.3.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "three": "^0.179.0",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@types/three": "^0.179.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "^5.8.3",
+    "vite": "^7.1.0"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "description": "Fire evacuation and crowd simulation for Building 1, Suankularb Wittayalai Rangsit, with physical routing, congestion, fire, smoke and approximate thermal risk."
+}

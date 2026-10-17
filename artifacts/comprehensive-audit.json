@@ -1,0 +1,287 @@
+{
+  "date": "2026-10-17",
+  "browser": "Chromium (in-app browser)",
+  "architecture": {
+    "mode": "exterior",
+    "floor": 3,
+    "bodyRadius": 0.18,
+    "headroom": 1.9,
+    "spacing": 0.16,
+    "meshes": 2789,
+    "edges": 339,
+    "samples": 15275,
+    "issues": []
+  },
+  "floorSwitches": [
+    {
+      "status": "paused",
+      "total": 3000,
+      "eligible": 375,
+      "rendered": 127,
+      "visible": true,
+      "viewMode": "interior",
+      "floor": 2,
+      "tier": "high",
+      "exploded": false
+    },
+    {
+      "status": "paused",
+      "total": 3000,
+      "eligible": 375,
+      "rendered": 125,
+      "visible": true,
+      "viewMode": "interior",
+      "floor": 3,
+      "tier": "high",
+      "exploded": false
+    },
+    {
+      "status": "paused",
+      "total": 3000,
+      "eligible": 375,
+      "rendered": 125,
+      "visible": true,
+      "viewMode": "interior",
+      "floor": 4,
+      "tier": "high",
+      "exploded": false
+    },
+    {
+      "status": "paused",
+      "total": 3000,
+      "eligible": 375,
+      "rendered": 125,
+      "visible": true,
+      "viewMode": "interior",
+      "floor": 5,
+      "tier": "high",
+      "exploded": false
+    },
+    {
+      "status": "paused",
+      "total": 3000,
+      "eligible": 375,
+      "rendered": 125,
+      "visible": true,
+      "viewMode": "interior",
+      "floor": 6,
+      "tier": "high",
+      "exploded": false
+    },
+    {
+      "status": "paused",
+      "total": 3000,
+      "eligible": 375,
+      "rendered": 125,
+      "visible": true,
+      "viewMode": "interior",
+      "floor": 7,
+      "tier": "high",
+      "exploded": false
+    },
+    {
+      "status": "paused",
+      "total": 3000,
+      "eligible": 375,
+      "rendered": 125,
+      "visible": true,
+      "viewMode": "interior",
+      "floor": 8,
+      "tier": "high",
+      "exploded": false
+    },
+    {
+      "status": "paused",
+      "total": 3000,
+      "eligible": 375,
+      "rendered": 124,
+      "visible": true,
+      "viewMode": "interior",
+      "floor": 9,
+      "tier": "high",
+      "exploded": false
+    },
+    {
+      "status": "paused",
+      "total": 3000,
+      "eligible": 375,
+      "rendered": 122,
+      "visible": true,
+      "viewMode": "interior",
+      "floor": 3,
+      "tier": "high",
+      "exploded": false
+    }
+  ],
+  "qualitySwitches": [
+    {
+      "quality": "ประหยัด",
+      "agents": {
+        "status": "paused",
+        "total": 3000,
+        "eligible": 375,
+        "rendered": 375,
+        "visible": true,
+        "viewMode": "interior",
+        "floor": 4,
+        "tier": "economy",
+        "exploded": false
+      },
+      "fire": {
+        "time": 0.8574000000357629,
+        "cells": 1,
+        "renderedCells": 1,
+        "sources": 1,
+        "geometry": "shared-visible-flame-cells",
+        "tier": "economy"
+      }
+    },
+    {
+      "quality": "สมดุล",
+      "agents": {
+        "status": "paused",
+        "total": 3000,
+        "eligible": 375,
+        "rendered": 375,
+        "visible": true,
+        "viewMode": "interior",
+        "floor": 4,
+        "tier": "balanced",
+        "exploded": false
+      },
+      "fire": {
+        "time": 0.8574000000357629,
+        "cells": 1,
+        "renderedCells": 1,
+        "sources": 1,
+        "geometry": "shared-visible-flame-cells",
+        "tier": "balanced"
+      }
+    },
+    {
+      "quality": "คมชัด",
+      "agents": {
+        "status": "paused",
+        "total": 3000,
+        "eligible": 375,
+        "rendered": 375,
+        "visible": true,
+        "viewMode": "interior",
+        "floor": 4,
+        "tier": "high",
+        "exploded": false
+      },
+      "fire": {
+        "time": 0.8574000000357629,
+        "cells": 1,
+        "renderedCells": 1,
+        "sources": 1,
+        "geometry": "shared-visible-flame-cells",
+        "tier": "high"
+      }
+    },
+    {
+      "quality": "อัตโนมัติ",
+      "agents": {
+        "status": "paused",
+        "total": 3000,
+        "eligible": 375,
+        "rendered": 375,
+        "visible": true,
+        "viewMode": "interior",
+        "floor": 4,
+        "tier": "high",
+        "exploded": false
+      },
+      "fire": {
+        "time": 0.8574000000357629,
+        "cells": 1,
+        "renderedCells": 1,
+        "sources": 1,
+        "geometry": "shared-visible-flame-cells",
+        "tier": "high"
+      }
+    }
+  ],
+  "responsive": [
+    {
+      "width": 320,
+      "height": 568,
+      "layout": {
+        "pageWidth": 320,
+        "viewport": 320
+      },
+      "population": {
+        "status": "idle",
+        "total": 3000,
+        "eligible": 3000,
+        "rendered": 3000,
+        "visible": true,
+        "viewMode": "exterior",
+        "floor": 4,
+        "tier": "high",
+        "exploded": false
+      }
+    },
+    {
+      "width": 393,
+      "height": 852,
+      "layout": {
+        "pageWidth": 393,
+        "viewport": 393
+      },
+      "population": {
+        "status": "idle",
+        "total": 3000,
+        "eligible": 3000,
+        "rendered": 3000,
+        "visible": true,
+        "viewMode": "exterior",
+        "floor": 4,
+        "tier": "high",
+        "exploded": false
+      }
+    },
+    {
+      "width": 820,
+      "height": 1180,
+      "layout": {
+        "pageWidth": 820,
+        "viewport": 820
+      },
+      "population": {
+        "status": "idle",
+        "total": 3000,
+        "eligible": 3000,
+        "rendered": 3000,
+        "visible": true,
+        "viewMode": "exterior",
+        "floor": 4,
+        "tier": "high",
+        "exploded": false
+      }
+    },
+    {
+      "width": 1180,
+      "height": 820,
+      "layout": {
+        "pageWidth": 1180,
+        "viewport": 1180
+      },
+      "population": {
+        "status": "idle",
+        "total": 3000,
+        "eligible": 3000,
+        "rendered": 3000,
+        "visible": true,
+        "viewMode": "exterior",
+        "floor": 4,
+        "tier": "high",
+        "exploded": false
+      }
+    }
+  ],
+  "mobilePopulationInput": "1500",
+  "console": [],
+  "scope": "Viewport emulation only; physical Safari/iPad and multi-touch hardware were not tested."
+}

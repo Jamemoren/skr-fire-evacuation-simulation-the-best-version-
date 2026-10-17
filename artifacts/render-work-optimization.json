@@ -1,0 +1,245 @@
+{
+  "samples": [
+    {
+      "phase": "idle",
+      "agentWork": {
+        "skipped": 376,
+        "updates": 1,
+        "uploadedBytes": 192000
+      },
+      "agents": {
+        "eligible": 3000,
+        "exploded": false,
+        "floor": 3,
+        "rendered": 3000,
+        "status": "idle",
+        "tier": "high",
+        "total": 3000,
+        "viewMode": "exterior",
+        "visible": true
+      },
+      "batches": {
+        "batchDraws": 85,
+        "remainingRenderables": 222,
+        "remainingTypes": {
+          "BoxGeometry": 99,
+          "BufferGeometry": 10,
+          "CircleGeometry": 3,
+          "CylinderGeometry": 28,
+          "DodecahedronGeometry": 1,
+          "ExtrudeGeometry": 7,
+          "IcosahedronGeometry": 1,
+          "LineGeometry": 45,
+          "PlaneGeometry": 7,
+          "ShapeGeometry": 1,
+          "SphereGeometry": 2,
+          "TubeGeometry": 18
+        },
+        "savedDraws": 5203,
+        "sourceMeshes": 5288,
+        "transparentMeshes": 25
+      },
+      "fireWork": {
+        "activeUploadBytes": 0,
+        "fieldUpdates": 1,
+        "smokeUpdates": 0
+      },
+      "render": {
+        "calls": 226,
+        "fps": 138,
+        "geometries": 5280,
+        "textures": 2,
+        "triangles": 1856628
+      }
+    },
+    {
+      "phase": "running",
+      "agentWork": {
+        "skipped": 1043,
+        "updates": 1177,
+        "uploadedBytes": 225984000
+      },
+      "agents": {
+        "eligible": 3000,
+        "exploded": false,
+        "floor": 3,
+        "rendered": 3000,
+        "status": "running",
+        "tier": "high",
+        "total": 3000,
+        "viewMode": "exterior",
+        "visible": true
+      },
+      "fireWork": {
+        "activeUploadBytes": 0,
+        "fieldUpdates": 1208,
+        "smokeUpdates": 0
+      },
+      "render": {
+        "calls": 227,
+        "fps": 93,
+        "geometries": 5386,
+        "textures": 2,
+        "triangles": 1857780
+      }
+    },
+    {
+      "phase": "fire-running",
+      "agentWork": {
+        "skipped": 1253,
+        "updates": 1910,
+        "uploadedBytes": 366720000
+      },
+      "agents": {
+        "eligible": 3000,
+        "exploded": false,
+        "floor": 3,
+        "rendered": 3000,
+        "status": "running",
+        "tier": "high",
+        "total": 3000,
+        "viewMode": "exterior",
+        "visible": true
+      },
+      "fireField": {
+        "cells": 99,
+        "geometry": "shared-visible-flame-cells",
+        "renderedCells": 99,
+        "sources": 3,
+        "tier": "high",
+        "time": 81.89459999996376
+      },
+      "fireWork": {
+        "activeUploadBytes": 12431104,
+        "fieldUpdates": 2029,
+        "smokeUpdates": 1459
+      },
+      "render": {
+        "calls": 231,
+        "fps": 33,
+        "geometries": 5386,
+        "textures": 2,
+        "triangles": 1887926
+      }
+    },
+    {
+      "phase": "final-running",
+      "agentWork": {
+        "skipped": 119,
+        "updates": 603,
+        "uploadedBytes": 115776000
+      },
+      "agents": {
+        "eligible": 3000,
+        "exploded": false,
+        "floor": 3,
+        "rendered": 3000,
+        "status": "running",
+        "tier": "balanced",
+        "total": 3000,
+        "viewMode": "exterior",
+        "visible": true
+      },
+      "fireField": {
+        "cells": 97,
+        "geometry": "shared-visible-flame-cells",
+        "renderedCells": 97,
+        "sources": 3,
+        "tier": "balanced",
+        "time": 33.22899999994043
+      },
+      "fireWork": {
+        "activeUploadBytes": 7528448,
+        "fieldUpdates": 646,
+        "smokeUpdates": 835
+      },
+      "render": {
+        "calls": 231,
+        "fps": 35,
+        "geometries": 5386,
+        "textures": 2,
+        "triangles": 1876204
+      }
+    },
+    {
+      "phase": "paused-a",
+      "agentWork": {
+        "skipped": 138,
+        "updates": 610,
+        "uploadedBytes": 116094592
+      },
+      "agents": {
+        "eligible": 373,
+        "exploded": false,
+        "floor": 5,
+        "rendered": 113,
+        "status": "paused",
+        "tier": "balanced",
+        "total": 3000,
+        "viewMode": "interior",
+        "visible": true
+      },
+      "fireField": {
+        "cells": 97,
+        "geometry": "shared-visible-flame-cells",
+        "renderedCells": 97,
+        "sources": 3,
+        "tier": "balanced",
+        "time": 33.32899999994042
+      },
+      "fireWork": {
+        "activeUploadBytes": 7590656,
+        "fieldUpdates": 648,
+        "smokeUpdates": 865
+      },
+      "render": {
+        "calls": 231,
+        "fps": 35,
+        "geometries": 5386,
+        "textures": 2,
+        "triangles": 1876204
+      }
+    },
+    {
+      "phase": "paused-b",
+      "agentWork": {
+        "skipped": 179,
+        "updates": 610,
+        "uploadedBytes": 116094592
+      },
+      "agents": {
+        "eligible": 373,
+        "exploded": false,
+        "floor": 5,
+        "rendered": 113,
+        "status": "paused",
+        "tier": "balanced",
+        "total": 3000,
+        "viewMode": "interior",
+        "visible": true
+      },
+      "fireField": {
+        "cells": 97,
+        "geometry": "shared-visible-flame-cells",
+        "renderedCells": 97,
+        "sources": 3,
+        "tier": "balanced",
+        "time": 33.32899999994042
+      },
+      "fireWork": {
+        "activeUploadBytes": 7628096,
+        "fieldUpdates": 648,
+        "smokeUpdates": 910
+      },
+      "render": {
+        "calls": 231,
+        "fps": 35,
+        "geometries": 5386,
+        "textures": 2,
+        "triangles": 1876204
+      }
+    }
+  ],
+  "console": [],
+  "note": "Runtime observations, not a controlled before/after FPS benchmark. Upload byte counters describe active matrix payloads and exclude initial GPU allocation."
+}

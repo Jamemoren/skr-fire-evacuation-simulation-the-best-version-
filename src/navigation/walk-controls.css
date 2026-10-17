@@ -1,0 +1,43 @@
+.touch-walk-controls { position: absolute; inset: 0; z-index: 32; pointer-events: none; color: #274b60; }
+.touch-walk-heading { position: absolute; top: 104px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 14px; max-width: calc(100% - 24px); border: 1px solid #d5e4e9; border-radius: 12px; background: #fffffff5; box-shadow: 0 4px 16px #233f5115; pointer-events: auto; }
+.touch-walk-heading > span { display: flex; align-items: center; gap: 7px; font-size: 12px; white-space: nowrap; font-weight: 600; }
+.touch-walk-heading i { width: 6px; height: 6px; border-radius: 50%; background: #27836c; }
+.touch-walk-heading select { min-height: 44px; max-width: 130px; border: 1px solid #dce6eb; border-radius: 8px; background: #f4f8fa; color: #294e63; padding: 7px; font-size: 13px; }
+.touch-walk-heading > button { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; border: 1px solid #dce6eb; border-radius: 8px; background: #fff; color: #536f80; cursor: pointer; }
+.walk-move-control, .walk-look-control { position: absolute; bottom: 32px; display: flex; flex-direction: column; align-items: center; gap: 9px; pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.walk-move-control { left: max(28px,env(safe-area-inset-left)); }
+.walk-look-control { right: max(28px,env(safe-area-inset-right)); }
+.walk-move-control > span, .walk-look-control > span { padding: 4px 8px; border: 1px solid #fff9; border-radius: 5px; background: #ffffffe8; color: #34586b; font-size: 11px; box-shadow: 0 1px 6px #1e3d5010; }
+.walk-stick, .walk-look-pad { position: relative; width: 126px; height: 126px; border: 2px solid #ffffffcf; border-radius: 50%; background: #e4f0f0c4; box-shadow: 0 4px 24px #19394e20,inset 0 0 0 8px #ffffff44; touch-action: none; cursor: grab; }
+.walk-stick:active, .walk-look-pad:active { cursor: grabbing; }
+.walk-axis-y, .walk-axis-x { position: absolute; background: #648d9b50; pointer-events: none; }
+.walk-axis-y { width: 1px; height: 80%; left: 50%; top: 10%; }
+.walk-axis-x { height: 1px; width: 80%; top: 50%; left: 10%; }
+.walk-knob { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 44px; height: 44px; border: 2px solid #fff; border-radius: 50%; background: #37768ad9; box-shadow: 0 3px 10px #183b4b35; pointer-events: none; }
+.walk-look-pad { display: grid; place-items: center; width: 108px; height: 108px; color: #3f7586; }
+.walk-look-pad > svg { width: 30px; height: 30px; pointer-events: none; }
+.walk-look-cross { position: absolute; font-size: 76px; line-height: 1; color: #4a7d8b30; pointer-events: none; }
+.walk-speed { min-height: 44px; padding: 7px 12px; border: 1px solid #d8e7eb; border-radius: 9px; background: #fffffff0; color: #3d6173; font-size: 11px; cursor: pointer; touch-action: manipulation; }
+.walk-speed[aria-pressed="true"] { color: #fff; background: #246b7a; }
+.sim-campus-ui[data-walking="true"] .sim-scene-toolbar, .sim-campus-ui[data-walking="true"] .sim-scene-caption, .sim-campus-ui[data-walking="true"] .sim-mobile-status { display: none; }
+.sim-campus-ui .sim-scene-toolbar .sim-walk-toggle { background: #e7f2f3; color: #236477; }
+@media (max-width: 1180px) {
+  .touch-walk-heading { top: calc(78px + env(safe-area-inset-top)); gap: 7px; padding-left: 10px; }
+  .touch-walk-heading > span { font-size: 11px; }
+  .touch-walk-heading select { font-size: 16px; max-width: 138px; }
+  .walk-move-control { left: max(18px,env(safe-area-inset-left)); bottom: calc(112px + env(safe-area-inset-bottom)); }
+  .walk-look-control { right: max(18px,env(safe-area-inset-right)); bottom: calc(100px + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 600px) {
+  .walk-stick { width: 112px; height: 112px; }
+  .walk-look-pad { width: 100px; height: 100px; }
+  .touch-walk-heading select { width: 120px; }
+  .walk-move-control > span, .walk-look-control > span { font-size: 10px; }
+}
+@media (max-height: 500px) and (max-width: 1180px) and (orientation: landscape) {
+  .touch-walk-heading { top: calc(64px + env(safe-area-inset-top)); }
+  .walk-move-control { bottom: max(18px,env(safe-area-inset-bottom)); }
+  .walk-look-control { bottom: calc(92px + env(safe-area-inset-bottom)); }
+  .walk-stick, .walk-look-pad { width: 96px; height: 96px; }
+  .walk-look-control > span, .walk-speed { display: none; }
+}

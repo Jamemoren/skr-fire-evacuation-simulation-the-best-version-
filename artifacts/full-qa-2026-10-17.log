@@ -1,0 +1,19 @@
+
+> skr-fire-evacuation-crowd-simulation@1.0.0 qa
+> node scripts/qa.mjs && node scripts/qa-features.mjs && node scripts/qa-student-visibility.mjs && node scripts/qa-detailed-audit.mjs && node scripts/qa-topology.mjs && node scripts/qa-semantic-parity.mjs && node scripts/qa-thermal-routing.mjs && node scripts/qa-outdoor-detour.mjs && node scripts/qa-zigzag.mjs && node scripts/qa-survival-guard.mjs && node scripts/qa-fire-spread-limit.mjs && node scripts/qa-simulation-core.mjs && node scripts/validate-semantic-map.mjs examples/building1-semantic-map.json && node scripts/check-reachability.mjs examples/building1-semantic-map.json
+
+QA ผ่าน: 72 source files, required files ครบ, relative imports ครบ
+Feature QA ผ่าน: 128 checks · Fire/Smoke FX · Route Planning · Wall Collision Guard · Physical Door Openings
+Student Visibility QA ผ่าน: {"population":3000,"rooms":96,"perFloor":375,"spawnParity":true,"reset":true,"allViews":true,"explodedFloors":true,"calibratedFrustum":true}
+Detailed Audit QA ผ่าน: {"studentModels":4,"headHeight":1.58,"indexedRiskChecks":1107,"bufferRanges":true,"pointerPolicy":true,"walkableDoors":true,"explodedGround":true,"metricsPercentiles":true,"storeLifecycle":true}
+Topology QA ผ่าน: {"nodes":338,"edges":369,"assigned":3000,"agents":600,"topologyViolations":0,"fireContacts":0,"reroutes":33,"inside":425,"stairs":175,"outside":0,"uncappedWalkingSpeed":10000,"highSpeedTopologyViolations":0}
+Semantic Graph Parity QA ผ่าน: {"graphNodes":338,"graphEdges":369,"semanticAnnotations":349,"semanticConnections":369,"classrooms":96,"people":3000,"school":"โรงเรียนสวนกุหลาบวิทยาลัย รังสิต"}
+Thermal Routing QA ผ่าน: {"baselineRoom":"b1-f3-pink-1","heatedEdge":"edge-stair-center-3-2","hotTemperature":144.2,"aStarEdges":16,"dijkstraEdges":16,"thermalReroutes":4,"maxModeledTemperatureC":34.5,"blockedThermalEdges":7,"topologyViolations":0}
+Outdoor Detour QA ผ่าน: {"arrived":12,"localDetour":true,"reroutes":0,"topologyViolations":0,"collisionCorrections":0,"fireContacts":0,"parallelGates":3}
+{"zigzagWaypoints":4,"fullBlock":true,"sweptCollision":true,"runtimeCrossed":true,"minSide":-0.8133065244359774,"maxSide":1.0981215827808526,"burningNodePassed":true,"blockedNpcSurvived":true,"contactOnly":true}
+Direct Flame Contact QA ผ่าน: {"victim":0,"status":"evacuating","health":1,"flameContactSeconds":0,"incapacitated":0,"blocked":0,"contact":false}
+Visible flame parity: seed growth, moving front, persistent trail, body contact, floor isolation and smoke-only survival passed
+Limited Fire Spread QA ผ่าน: {"totalFires":16,"spreadFires":15,"maxGeneration":3,"maxHorizontalTransferM":9.35,"maxVerticalTransferM":14,"minTravelDurationS":8.54,"simulationTimeS":140}
+Simulation Core QA ผ่าน: {"assigned":3000,"zones":{"sim-zone-b":500,"sim-zone-a":500,"sim-zone-c":500,"sim-zone-e":500,"sim-zone-d":500,"sim-zone-f":500},"mixedGenderRooms":96,"floorIsolation":true,"verticalSpreadFloors":[4,5,6],"isolatedCasualties":3,"casualtyFloors":[5],"baselineActive":3000,"exactActiveOverlaps":0,"locallyAware":337,"directAware":0,"smokeHazardAware":7,"heatHazardAware":1,"reportedAware":329,"smokeAware":337,"smokeSensed":8,"heatAware":330,"heatSensed":1,"lowVisibility":9,"stressed":337,"invalidExterior":0,"invalidRoomExit":0,"incapacitated":16,"groupedCollisionCorrections":0,"surgeCollisionCorrections":0,"baselineQueue":0,"fireReroutes":160,"blockedSafeStops":0,"smokeExposure":269,"heatExposure":325,"collisionCorrections":0,"topologyViolations":0,"peakEdgeDensity":9.222657420358168}
+Semantic Map schema version 2 ผ่าน: 349 ตำแหน่ง, 369 เส้นเชื่อม, 96 ห้องเรียน, 3000 คน
+Reachability ผ่าน: 96/96 ห้องไปถึงจุดรวมพล

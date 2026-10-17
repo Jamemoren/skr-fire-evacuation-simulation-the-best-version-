@@ -1,0 +1,5 @@
+
+> skr-fire-evacuation-crowd-simulation@1.0.0 qa:audit
+> node scripts/qa-detailed-audit.mjs
+
+Detailed Audit QA ผ่าน: {"studentModels":4,"headHeight":1.58,"indexedRiskChecks":1107,"bufferRanges":true,"pointerPolicy":true,"walkableDoors":true,"explodedGround":true,"metricsPercentiles":true,"storeLifecycle":true,"animationBuffers":true,"lifecycleReentry":true,"invalidNumbers":true,"rendererClockReset":true,"pointerRelease":true,"poseIdentity":true,"longSessionPhase":true,"uniqueFireIds":true}

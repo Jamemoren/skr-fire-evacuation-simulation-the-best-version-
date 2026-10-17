@@ -1,0 +1,34 @@
+FIRE EVACUATION AND CROWD SIMULATION SYSTEM
+Building 1 — Suankularb Wittayalai Rangsit
+
+CORE SOURCE
+- src/App.tsx
+- src/projectIdentity.ts
+- src/store.ts
+- src/building1/
+- src/simulation/
+- src/components/
+- src/utils/
+
+DATA
+- examples/building1-semantic-map.json
+
+QUALITY ASSURANCE
+- scripts/qa.mjs
+- scripts/qa-features.mjs
+- scripts/qa-topology.mjs
+- scripts/qa-semantic-parity.mjs
+- scripts/qa-thermal-routing.mjs
+- scripts/qa-outdoor-detour.mjs
+- scripts/qa-survival-guard.mjs
+- scripts/qa-fire-spread-limit.mjs
+- scripts/qa-simulation-core.mjs
+- scripts/validate-semantic-map.mjs
+- scripts/check-reachability.mjs
+
+DOCUMENTATION
+- README.md
+- SYSTEM_OVERVIEW.md
+- SIMULATION_ALGORITHM.md
+- QA_REPORT.md
+- QUICK_START_TH.md

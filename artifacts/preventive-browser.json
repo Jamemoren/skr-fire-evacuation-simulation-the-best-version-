@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-17",
+  "results": [
+    {
+      "stage": "paused-floor9-economy",
+      "population": "{\"status\":\"paused\",\"total\":3000,\"eligible\":375,\"rendered\":375,\"visible\":true,\"viewMode\":\"interior\",\"floor\":9,\"tier\":\"economy\",\"exploded\":false}"
+    },
+    {
+      "stage": "walk-floor9",
+      "before": "-24.00,29.86,1.86",
+      "after": "-24.05,29.86,1.86"
+    },
+    {
+      "stage": "reset-final",
+      "population": "{\"status\":\"idle\",\"total\":3000,\"eligible\":375,\"rendered\":125,\"visible\":true,\"viewMode\":\"interior\",\"floor\":3,\"tier\":\"high\",\"exploded\":false}",
+      "visibility": "visible"
+    }
+  ],
+  "console": [],
+  "visibilityProbe": {
+    "population": "{\"status\":\"running\",\"total\":3000,\"eligible\":375,\"rendered\":375,\"visible\":true,\"viewMode\":\"interior\",\"floor\":3,\"tier\":\"high\",\"exploded\":false}",
+    "visibility": "visible"
+  },
+  "scope": "The tab switch probe remained visible; a real hidden/resume event and physical multi-touch Safari/iOS were not exercised."
+}

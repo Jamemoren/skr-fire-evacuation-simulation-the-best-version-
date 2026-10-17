@@ -1,0 +1,250 @@
+{
+  "floors": [
+    {
+      "status": "paused",
+      "total": 3000,
+      "eligible": 375,
+      "rendered": 125,
+      "visible": true,
+      "viewMode": "interior",
+      "floor": 2,
+      "tier": "high",
+      "exploded": false
+    },
+    {
+      "status": "paused",
+      "total": 3000,
+      "eligible": 375,
+      "rendered": 125,
+      "visible": true,
+      "viewMode": "interior",
+      "floor": 3,
+      "tier": "high",
+      "exploded": false
+    },
+    {
+      "status": "paused",
+      "total": 3000,
+      "eligible": 375,
+      "rendered": 125,
+      "visible": true,
+      "viewMode": "interior",
+      "floor": 4,
+      "tier": "high",
+      "exploded": false
+    },
+    {
+      "status": "paused",
+      "total": 3000,
+      "eligible": 375,
+      "rendered": 125,
+      "visible": true,
+      "viewMode": "interior",
+      "floor": 5,
+      "tier": "high",
+      "exploded": false
+    },
+    {
+      "status": "paused",
+      "total": 3000,
+      "eligible": 375,
+      "rendered": 125,
+      "visible": true,
+      "viewMode": "interior",
+      "floor": 6,
+      "tier": "high",
+      "exploded": false
+    },
+    {
+      "status": "paused",
+      "total": 3000,
+      "eligible": 375,
+      "rendered": 125,
+      "visible": true,
+      "viewMode": "interior",
+      "floor": 7,
+      "tier": "high",
+      "exploded": false
+    },
+    {
+      "status": "paused",
+      "total": 3000,
+      "eligible": 375,
+      "rendered": 126,
+      "visible": true,
+      "viewMode": "interior",
+      "floor": 8,
+      "tier": "high",
+      "exploded": false
+    },
+    {
+      "status": "paused",
+      "total": 3000,
+      "eligible": 375,
+      "rendered": 125,
+      "visible": true,
+      "viewMode": "interior",
+      "floor": 9,
+      "tier": "high",
+      "exploded": false
+    },
+    {
+      "status": "paused",
+      "total": 3000,
+      "eligible": 375,
+      "rendered": 130,
+      "visible": true,
+      "viewMode": "interior",
+      "floor": 3,
+      "tier": "high",
+      "exploded": false
+    }
+  ],
+  "views": [
+    {
+      "view": "อาคาร",
+      "population": {
+        "status": "paused",
+        "total": 3000,
+        "eligible": 3000,
+        "rendered": 2266,
+        "visible": true,
+        "viewMode": "exterior",
+        "floor": 3,
+        "tier": "high",
+        "exploded": false
+      }
+    },
+    {
+      "view": "สนาม",
+      "population": {
+        "status": "paused",
+        "total": 3000,
+        "eligible": 3000,
+        "rendered": 3000,
+        "visible": true,
+        "viewMode": "exterior",
+        "floor": 3,
+        "tier": "high",
+        "exploded": false
+      }
+    },
+    {
+      "view": "ด้านบน",
+      "population": {
+        "status": "paused",
+        "total": 3000,
+        "eligible": 3000,
+        "rendered": 0,
+        "visible": true,
+        "viewMode": "exterior",
+        "floor": 3,
+        "tier": "high",
+        "exploded": false
+      }
+    },
+    {
+      "view": "อาคาร",
+      "population": {
+        "status": "paused",
+        "total": 3000,
+        "eligible": 3000,
+        "rendered": 3000,
+        "visible": true,
+        "viewMode": "exterior",
+        "floor": 3,
+        "tier": "high",
+        "exploded": false
+      }
+    }
+  ],
+  "quality": [
+    {
+      "quality": "ประหยัด",
+      "population": {
+        "status": "paused",
+        "total": 3000,
+        "eligible": 375,
+        "rendered": 375,
+        "visible": true,
+        "viewMode": "interior",
+        "floor": 9,
+        "tier": "economy",
+        "exploded": false
+      }
+    },
+    {
+      "quality": "สมดุล",
+      "population": {
+        "status": "paused",
+        "total": 3000,
+        "eligible": 375,
+        "rendered": 375,
+        "visible": true,
+        "viewMode": "interior",
+        "floor": 9,
+        "tier": "balanced",
+        "exploded": false
+      }
+    },
+    {
+      "quality": "คมชัด",
+      "population": {
+        "status": "paused",
+        "total": 3000,
+        "eligible": 375,
+        "rendered": 375,
+        "visible": true,
+        "viewMode": "interior",
+        "floor": 9,
+        "tier": "high",
+        "exploded": false
+      }
+    },
+    {
+      "quality": "อัตโนมัติ",
+      "population": {
+        "status": "paused",
+        "total": 3000,
+        "eligible": 375,
+        "rendered": 375,
+        "visible": true,
+        "viewMode": "interior",
+        "floor": 9,
+        "tier": "high",
+        "exploded": false
+      }
+    }
+  ],
+  "architecture": {
+    "mode": "exterior",
+    "floor": 3,
+    "bodyRadius": 0.18,
+    "headroom": 1.9,
+    "spacing": 0.16,
+    "meshes": 2789,
+    "edges": 339,
+    "samples": 15275,
+    "issues": []
+  },
+  "final": {
+    "status": "paused",
+    "total": 3000,
+    "eligible": 375,
+    "rendered": 125,
+    "visible": true,
+    "viewMode": "interior",
+    "floor": 9,
+    "tier": "high",
+    "exploded": false
+  },
+  "console": [],
+  "editingMessages": [
+    {
+      "level": "error",
+      "message": "[vite] Failed to reload /src/simulation/SimulationScene.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above)",
+      "timestamp": "2026-10-17T09:36:19.261Z",
+      "url": "http://127.0.0.1:5173/@vite/client"
+    }
+  ]
+}
