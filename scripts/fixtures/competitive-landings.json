@@ -1,0 +1,86 @@
+[
+  {
+    "id": 162,
+    "position": [
+      0.8675300828499095,
+      21.31213518242407,
+      0.35310027424411955
+    ],
+    "nodeId": "sim-stair-center-f7",
+    "edgeId": "edge-stair-center-7-6",
+    "incomingEdge": "edge-stair-center-8-7",
+    "incomingFrom": "sim-stair-center-f8"
+  },
+  {
+    "id": 87,
+    "position": [
+      1.1012904058618405,
+      21.591598217290283,
+      0.26446556667785215
+    ],
+    "nodeId": "sim-stair-center-f7",
+    "edgeId": "edge-stair-center-7-6",
+    "incomingEdge": "edge-stair-center-8-7",
+    "incomingFrom": "sim-stair-center-f8"
+  },
+  {
+    "id": 88,
+    "position": [
+      1.0721761840791881,
+      24.735275570527254,
+      0.7534360334762007
+    ],
+    "nodeId": "sim-stair-center-f8",
+    "edgeId": "edge-stair-center-8-7",
+    "incomingEdge": "edge-stair-center-9-8",
+    "incomingFrom": "sim-stair-center-f9"
+  },
+  {
+    "id": 77,
+    "position": [
+      1.516688757116929,
+      24.7,
+      0.6433613311425275
+    ],
+    "nodeId": "sim-stair-center-f8",
+    "edgeId": "edge-stair-center-8-7",
+    "incomingEdge": "edge-stair-center-9-8",
+    "incomingFrom": "sim-stair-center-f9"
+  },
+  {
+    "id": 135,
+    "position": [
+      0.8485512012112725,
+      18.2462965507265,
+      -0.20780189060182466
+    ],
+    "nodeId": "sim-stair-center-f6",
+    "edgeId": "edge-stair-center-6-5",
+    "incomingEdge": "edge-stair-center-7-6",
+    "incomingFrom": "sim-stair-center-f7"
+  },
+  {
+    "id": 212,
+    "position": [
+      1.5954125092049716,
+      18.242752180984958,
+      -0.3511915639999621
+    ],
+    "nodeId": "sim-stair-center-f6",
+    "edgeId": "edge-stair-center-6-5",
+    "incomingEdge": "edge-stair-center-7-6",
+    "incomingFrom": "sim-stair-center-f7"
+  },
+  {
+    "id": 201,
+    "position": [
+      0.9122340119256586,
+      21.470478487429215,
+      0.01445183619225858
+    ],
+    "nodeId": "sim-stair-center-f7",
+    "edgeId": "edge-junction-center-stair-f7",
+    "incomingEdge": "edge-stair-center-8-7",
+    "incomingFrom": "sim-stair-center-f8"
+  }
+]

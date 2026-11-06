@@ -9,11 +9,11 @@ export function QualityControls() {
   const mode = useQualityStore((state) => state.mode);
   const tier = useQualityStore((state) => state.tier);
   const setMode = useQualityStore((state) => state.setMode);
-  return <section className="sim-control-section sim-quality-section" aria-label="คุณภาพกราฟิก">
-    <div className="sim-section-title"><span>ภาพและความลื่นไหล</span><strong>{tier === "high" ? "รายละเอียดสูง" : tier === "balanced" ? "สมดุล" : "ประหยัดพลังงาน"}</strong></div>
-    <div className="sim-quality-options" role="group" aria-label="เลือกระดับภาพ">
-      {options.map((option) => <button type="button" key={option.id} aria-pressed={mode === option.id} onClick={() => setMode(option.id)}>{option.label}</button>)}
+  return <div className="sw-quality" aria-label="คุณภาพกราฟิก">
+    <header className="sw-section-head"><h3>ภาพและความลื่นไหล</h3><span className="pi-chip is-neutral">ใช้อยู่: {tier === "high" ? "รายละเอียดสูง" : tier === "balanced" ? "สมดุล" : "ประหยัดพลังงาน"}</span></header>
+    <div className="pi-seg" role="radiogroup" aria-label="เลือกระดับภาพ">
+      {options.map((option) => <button type="button" role="radio" key={option.id} aria-checked={mode === option.id} className={mode === option.id ? "is-active" : ""} onClick={() => setMode(option.id)}>{option.label}</button>)}
     </div>
-    <p className="sim-hint neutral">{mode === "auto" ? "ปรับความละเอียด เงา และเอฟเฟกต์ให้เหมาะกับเครื่องโดยอัตโนมัติ" : mode === "economy" ? "ลดเงาและเอฟเฟกต์ ช่วยประหยัดแบตเตอรี่และลดภาระเครื่อง" : "เลือกอัตโนมัติหากรู้สึกว่าฉากเริ่มกระตุก"}</p>
-  </section>;
+    <p className="pi-help">{mode === "auto" ? "ปรับความละเอียด เงา และเอฟเฟกต์ให้เหมาะกับเครื่องโดยอัตโนมัติ" : mode === "economy" ? "ลดเงาและเอฟเฟกต์ ช่วยประหยัดแบตเตอรี่และลดภาระเครื่อง" : "เลือกอัตโนมัติหากรู้สึกว่าฉากเริ่มกระตุก"}</p>
+  </div>;
 }

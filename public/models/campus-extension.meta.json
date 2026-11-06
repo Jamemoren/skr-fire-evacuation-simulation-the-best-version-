@@ -1,0 +1,38 @@
+{
+  "source": "Untitled.blend5.blend",
+  "sourceSha256": "e87117f5ba89ddc196d2bdcd98f3430354b7c70a39c3e498149b806b413a4292",
+  "assetSha256": "2b37e88721ad7d019b79e235290050942a6a9f14b122cef29e0c9d74c154673d",
+  "meshes": 28,
+  "triangles": 18869,
+  "removedDuplicateFaces": 24275,
+  "excludedDetachedConstructionObjects": [
+    "Cube.019",
+    "Cube.020",
+    "Cube.021",
+    "Cube.022",
+    "Cube.023",
+    "Cube.024",
+    "Cube.025",
+    "Cube.026",
+    "Cube.027",
+    "Cube.028",
+    "Cube.029",
+    "Cube.030",
+    "Cube.031",
+    "Cube.032",
+    "Cube.033",
+    "Cube.034",
+    "Cube.035"
+  ],
+  "position": [
+    -112,
+    0,
+    -43
+  ],
+  "rotationY": 0,
+  "scale": 0.416,
+  "purpose": "Building 4 visual context, positioned to the left of Building 3 from the supplied site sketch. Height aligned to the fourth-floor bridge. Evacuation remains Building 1.",
+  "heightScale": 0.39716312056737585,
+  "linkedAsset": "building-4-linked.glb",
+  "linkedAssetSha256": "782ccd42293eb34884e7ebb450e12bd890c70e3e524bd8b9c3609bab95528167"
+}

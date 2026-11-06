@@ -1,0 +1,21 @@
+Additional campus building
+
+Converted from the user-supplied Untitled.blend5.blend using Blender 5.2.
+The original .blend file was read only and was not overwritten.
+
+Web asset: campus-extension.glb (embedded geometry/materials, no external textures).
+28 meshes, 18,869 triangles. Removed 24,275 coincident duplicate faces and
+17 detached construction/stair copies outside the primary building assembly.
+See campus-extension.meta.json for hashes, placement and the excluded object list.
+
+The building is now used as Building 4, to the left of Building 3 on the northern
+side of the campus, per the user's site sketch. Horizontal scale is 0.416 and
+vertical scale is 11.2/28.2 to match the fourth-floor bridge. These are illustrative
+display coordinates, not surveyed coordinates. The source geometry remains here;
+the web uses building-4-linked.glb with a derived gallery doorway for the bridge.
+
+The building, plaza, connected pedestrian walks, lamps, planters and benches
+extend the default generated campus. Interior views isolate Building 1.
+The existing evacuation network and capacity model still apply to Building 1.
+No unverified nodes, exits, occupancy or evacuation results are invented for
+this additional building. Imported custom projects are not replaced.

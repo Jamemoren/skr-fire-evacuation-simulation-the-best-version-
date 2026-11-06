@@ -42,6 +42,7 @@ export function surfaceHitFromIntersection(
     ? modelRoot.worldToLocal(worldPoint.clone())
     : worldPoint.clone();
   return {
+    objectId: typeof object.userData.editorId === "string" ? object.userData.editorId : undefined,
     position: vec3(localPoint),
     worldPosition: vec3(worldPoint),
     normal: vec3(normal),
@@ -137,13 +138,13 @@ export function cloneSceneWithMaterialOverrides(
       mesh.material = mesh.material.map((material) => {
         const next = material.clone();
         next.transparent = opacity < 0.999 || next.transparent;
-        next.opacity = opacity;
+        next.opacity = material.opacity * opacity;
         return next;
       });
     } else {
       const next = mesh.material.clone();
       next.transparent = opacity < 0.999 || next.transparent;
-      next.opacity = opacity;
+      next.opacity = mesh.material.opacity * opacity;
       mesh.material = next;
     }
     mesh.castShadow = false;

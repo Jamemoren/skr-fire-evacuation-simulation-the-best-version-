@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { balancedOccupancyAt } from "./building1/building1Data";
 import {
   DEFAULT_PEOPLE_PER_ROOM,
   STORAGE_KEY,
@@ -13,6 +14,9 @@ import type {
   CameraMode,
   MeasurementState,
   ModelReport,
+  ModelObjectEdit,
+  ModelObjectInfo,
+  TransformMode,
   ModelSourceInfo,
   ProjectInfo,
   SemanticAnnotation,
@@ -32,12 +36,34 @@ interface ToastMessage {
 }
 
 interface MapSnapshot {
+  objects: Record<string, ModelObjectEdit>;
+  project: ProjectInfo;
   annotations: SemanticAnnotation[];
   connections: SemanticConnection[];
   calibration: Calibration;
 }
 
 interface MapperState {
+  projectBusy: boolean;
+  workspaceInitialized: boolean;
+  objects: Record<string, ModelObjectEdit>;
+  modelObjects: ModelObjectInfo[];
+  selectedObjectId: string | null;
+  transformMode: TransformMode;
+  transformSpace: "world" | "local";
+  transformTarget: "selection" | "model";
+  transformDragging: boolean;
+  lastTransformAt: number;
+  editSnapshot: MapSnapshot | null;
+  selectObject: (id: string | null) => void;
+  setTransformMode: (mode: TransformMode) => void;
+  setTransformTarget: (target: "selection" | "model") => void;
+  patchObject: (id: string, patch: ModelObjectEdit) => void;
+  duplicateObject: (id: string) => void;
+  beginTransform: () => void;
+  previewTransform: (patch: Partial<Pick<MapperState, "annotations" | "objects" | "calibration">>) => void;
+  finishTransform: () => void;
+  cancelTransform: () => void;
   project: ProjectInfo;
   modelUrl: string | null;
   modelSource: ModelSourceInfo;
@@ -67,7 +93,6 @@ interface MapperState {
   measurement: MeasurementState;
   cameraFocus: Vec3 | null;
   cameraFocusToken: number;
-  showOnboarding: boolean;
   showShortcuts: boolean;
   past: MapSnapshot[];
   future: MapSnapshot[];
@@ -113,7 +138,6 @@ interface MapperState {
   distributePopulation: () => void;
   importMap: (map: SemanticMapFile) => void;
   requestCameraFocus: (position: Vec3) => void;
-  setShowOnboarding: (value: boolean) => void;
   setShowShortcuts: (value: boolean) => void;
   undo: () => void;
   redo: () => void;
@@ -195,6 +219,8 @@ function defaultDraft(hit: SurfaceHit, type: AnnotationType): AnnotationDraft {
 
 function snapshot(state: MapperState): MapSnapshot {
   return {
+    objects: structuredClone(state.objects),
+    project: structuredClone(state.project),
     annotations: structuredClone(state.annotations),
     connections: structuredClone(state.connections),
     calibration: structuredClone(state.calibration),
@@ -209,6 +235,7 @@ export const useMapperStore = create<MapperState>()(
           const patch = patcher(state);
           return {
             ...patch,
+            workspaceInitialized: true,
             past: [...state.past.slice(-49), snapshot(state)],
             future: [],
             project: patch.project
@@ -219,6 +246,59 @@ export const useMapperStore = create<MapperState>()(
       };
 
       return {
+        projectBusy: false,
+        workspaceInitialized: false,
+        objects: {},
+        modelObjects: [],
+        selectedObjectId: null,
+        transformMode: "translate",
+        transformSpace: "world",
+        transformTarget: "selection",
+        transformDragging: false,
+        lastTransformAt: 0,
+        editSnapshot: null,
+        selectObject: (selectedObjectId) => set({ selectedObjectId, selectedAnnotationId: null, selectedConnectionId: null, transformTarget: "selection", toolMode: "inspect" }),
+        setTransformMode: (transformMode) => {
+          if (typeof document !== "undefined" && document.pointerLockElement) void document.exitPointerLock();
+          set({ transformMode, toolMode: "inspect", cameraMode: get().cameraMode === "god" ? "orbit" : get().cameraMode });
+        },
+        setTransformTarget: (transformTarget) => set({ transformTarget, toolMode: "inspect" }),
+        patchObject: (id, patch) => commit((state) => ({ objects: { ...state.objects, [id]: { ...state.objects[id], ...patch } } })),
+        duplicateObject: (id) => {
+          const state = get();
+          const source = state.modelObjects.find((item) => item.id === id);
+          if (!source) return;
+          const previous = state.objects[id] ?? {};
+          const copyId = createId("object");
+          const position = previous.position ?? source.position;
+          commit((current) => ({
+            objects: { ...current.objects, [copyId]: {
+              ...previous, duplicateOf: previous.duplicateOf ?? id,
+              name: (previous.name ?? source.name) + " สำเนา", visible: true, deleted: false, locked: false,
+              position: [position[0] + current.snapSize, position[1], position[2] + current.snapSize],
+              rotation: previous.rotation ?? source.rotation, scale: previous.scale ?? source.scale,
+            } },
+            selectedObjectId: copyId,
+          }));
+        },
+        beginTransform: () => { if (!get().editSnapshot) set({ editSnapshot: snapshot(get()), transformDragging: true, lastTransformAt: Date.now() }); },
+        previewTransform: (patch) => { if (get().editSnapshot) set(patch); },
+        finishTransform: () => {
+          const state = get();
+          const before = state.editSnapshot;
+          if (!before) return;
+          const changed = JSON.stringify(before) !== JSON.stringify(snapshot(state));
+          set({
+            editSnapshot: null, transformDragging: false, lastTransformAt: Date.now(),
+            past: changed ? [...state.past.slice(-49), before] : state.past,
+            future: changed ? [] : state.future,
+            project: changed ? { ...state.project, updatedAt: now() } : state.project,
+          });
+        },
+        cancelTransform: () => {
+          const before = get().editSnapshot;
+          if (before) set({ ...before, editSnapshot: null, transformDragging: false, lastTransformAt: Date.now() });
+        },
         project: DEFAULT_PROJECT,
         modelUrl: null,
         modelSource: { name: DIGITAL_MODEL_NAME_TH, size: 0, sha256: GENERATED_MODEL_HASH, source: "generated" },
@@ -248,7 +328,6 @@ export const useMapperStore = create<MapperState>()(
         measurement: { start: null, end: null },
         cameraFocus: null,
         cameraFocusToken: 0,
-        showOnboarding: true,
         showShortcuts: false,
         past: [],
         future: [],
@@ -282,7 +361,7 @@ export const useMapperStore = create<MapperState>()(
             : [...state.hiddenTypes, type],
         })),
         setTargetHit: (targetHit) => set({ targetHit }),
-        setInspectedHit: (inspectedHit) => set({ inspectedHit }),
+        setInspectedHit: (inspectedHit) => set({ inspectedHit, selectedObjectId: inspectedHit?.objectId ?? null, selectedAnnotationId: null, selectedConnectionId: null, transformTarget: "selection" }),
         openDraftFromHit: (hit, type) => set({ draft: defaultDraft(hit, type ?? get().placementType) }),
         updateDraft: (patch) => set((state) => ({ draft: state.draft ? { ...state.draft, ...patch } : null })),
         closeDraft: () => set({ draft: null }),
@@ -319,6 +398,8 @@ export const useMapperStore = create<MapperState>()(
             annotations: [...current.annotations, annotation],
             selectedAnnotationId: annotation.id,
             selectedConnectionId: null,
+            selectedObjectId: null,
+            transformTarget: "selection",
             draft: null,
           }));
           get().addToast("success", `บันทึก “${annotation.name}” แล้ว`);
@@ -345,17 +426,25 @@ export const useMapperStore = create<MapperState>()(
           commit((state) => ({ annotations: [...state.annotations, duplicate], selectedAnnotationId: duplicate.id }));
           get().addToast("success", "สร้างสำเนาตำแหน่งแล้ว");
         },
-        deleteAnnotation: (id) => commit((state) => ({
-          annotations: state.annotations.filter((annotation) => annotation.id !== id),
-          connections: state.connections.filter((connection) => connection.fromId !== id && connection.toId !== id),
-          selectedAnnotationId: state.selectedAnnotationId === id ? null : state.selectedAnnotationId,
-          connectFromId: state.connectFromId === id ? null : state.connectFromId,
-        })),
-        selectAnnotation: (selectedAnnotationId) => set({ selectedAnnotationId, selectedConnectionId: null }),
+        deleteAnnotation: (id) => {
+          if (get().annotations.find((item) => item.id === id)?.locked) {
+            get().addToast("warning", "ปลดล็อกตำแหน่งก่อนลบ");
+            return;
+          }
+          commit((state) => ({
+            annotations: state.annotations.filter((annotation) => annotation.id !== id),
+            connections: state.connections.filter((connection) => connection.fromId !== id && connection.toId !== id),
+            selectedAnnotationId: state.selectedAnnotationId === id ? null : state.selectedAnnotationId,
+            selectedConnectionId: state.connections.some((edge) => edge.id === state.selectedConnectionId && (edge.fromId === id || edge.toId === id)) ? null : state.selectedConnectionId,
+            connectFromId: state.connectFromId === id ? null : state.connectFromId,
+          }));
+        },
+        selectAnnotation: (selectedAnnotationId) => set({ selectedAnnotationId, selectedConnectionId: null, selectedObjectId: null, transformTarget: "selection" }),
         handleAnnotationClick: (id) => {
           const state = get();
+          set({ selectedObjectId: null, transformTarget: "selection" });
           if (state.toolMode !== "connect") {
-            set({ selectedAnnotationId: id, selectedConnectionId: null });
+            set({ selectedAnnotationId: id, selectedConnectionId: null, selectedObjectId: null, transformTarget: "selection" });
             return;
           }
           if (!state.connectFromId) {
@@ -369,7 +458,7 @@ export const useMapperStore = create<MapperState>()(
             return;
           }
           state.addConnection(state.connectFromId, id);
-          set({ connectFromId: null, selectedAnnotationId: id });
+          set({ connectFromId: null, selectedAnnotationId: null });
         },
         addConnection: (fromId, toId) => {
           const state = get();
@@ -401,7 +490,7 @@ export const useMapperStore = create<MapperState>()(
         updateConnection: (id, patch) => commit((state) => ({
           connections: state.connections.map((connection) => connection.id === id ? { ...connection, ...patch } : connection),
         })),
-        selectConnection: (selectedConnectionId) => set({ selectedConnectionId, selectedAnnotationId: null }),
+        selectConnection: (selectedConnectionId) => set({ selectedConnectionId, selectedAnnotationId: null, selectedObjectId: null, transformTarget: "selection" }),
         deleteConnection: (id) => commit((state) => ({
           connections: state.connections.filter((connection) => connection.id !== id),
           selectedConnectionId: state.selectedConnectionId === id ? null : state.selectedConnectionId,
@@ -427,13 +516,17 @@ export const useMapperStore = create<MapperState>()(
             get().addToast("warning", "ยังไม่มีตำแหน่งห้องเรียน");
             return;
           }
-          let remaining = TARGET_POPULATION;
-          const classroomIds = new Set(classrooms.map((room) => room.id));
+          const capacities=classrooms.map(room=>Math.max(0,Math.floor(Math.min(DEFAULT_PEOPLE_PER_ROOM,room.capacity))));
+          const target=Math.min(TARGET_POPULATION,capacities.reduce((sum,cap)=>sum+cap,0));
+          const counts=classrooms.map((_,i)=>Math.min(capacities[i],balancedOccupancyAt(i,target,classrooms.length)));
+          let remainder=target-counts.reduce((sum,count)=>sum+count,0);
+          while(remainder>0)for(let i=0;i<counts.length&&remainder>0;i++)if(counts[i]<capacities[i]){counts[i]++;remainder--;}
+          const peopleById=new Map(classrooms.map((room,i)=>[room.id,counts[i]]));
+          const remaining=TARGET_POPULATION-target;
           commit((state) => ({
             annotations: state.annotations.map((annotation) => {
-              if (!classroomIds.has(annotation.id)) return annotation;
-              const count = Math.min(DEFAULT_PEOPLE_PER_ROOM, remaining);
-              remaining -= count;
+              const count=peopleById.get(annotation.id);
+              if (count===undefined) return annotation;
               return { ...annotation, peopleCount: count, updatedAt: now() };
             }),
           }));
@@ -445,7 +538,11 @@ export const useMapperStore = create<MapperState>()(
           );
         },
         importMap: (map) => commit(() => ({
+          ...map.editor,
           project: map.project,
+          objects: map.objects ?? {},
+          workspaceInitialized: true,
+          selectedObjectId: null,
           calibration: map.calibration,
           annotations: map.annotations,
           connections: map.connections,
@@ -454,13 +551,15 @@ export const useMapperStore = create<MapperState>()(
           connectFromId: null,
         })),
         requestCameraFocus: (cameraFocus) => set((state) => ({ cameraFocus, cameraFocusToken: state.cameraFocusToken + 1 })),
-        setShowOnboarding: (showOnboarding) => set({ showOnboarding }),
         setShowShortcuts: (showShortcuts) => set({ showShortcuts }),
         undo: () => {
           const state = get();
           const previous = state.past.at(-1);
           if (!previous) return;
           set({
+            objects: previous.objects ?? {},
+            project: previous.project ?? state.project,
+            selectedObjectId: null,
             annotations: previous.annotations,
             connections: previous.connections,
             calibration: previous.calibration,
@@ -475,6 +574,9 @@ export const useMapperStore = create<MapperState>()(
           const next = state.future[0];
           if (!next) return;
           set({
+            objects: next.objects ?? {},
+            project: next.project ?? state.project,
+            selectedObjectId: null,
             annotations: next.annotations,
             connections: next.connections,
             calibration: next.calibration,
@@ -496,9 +598,10 @@ export const useMapperStore = create<MapperState>()(
       name: STORAGE_KEY,
       version: 2,
       partialize: (state) => ({
+        workspaceInitialized: state.workspaceInitialized,
+        objects: state.objects,
         project: state.project,
         modelSource: state.modelSource,
-        modelReport: state.modelReport,
         calibration: state.calibration,
         godSpeed: state.godSpeed,
         showGrid: state.showGrid,
@@ -510,7 +613,6 @@ export const useMapperStore = create<MapperState>()(
         hiddenTypes: state.hiddenTypes,
         annotations: state.annotations,
         connections: state.connections,
-        showOnboarding: state.showOnboarding,
       }),
     },
   ),

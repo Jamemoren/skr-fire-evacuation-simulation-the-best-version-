@@ -2,8 +2,6 @@ import {
   ASSEMBLY_ZONE_CAPACITY,
   BUILDING_ID,
   CLASSROOMS,
-  FIELD_CENTER,
-  FIELD_SIZE,
   FLOOR_COUNT,
   FLOOR_HEIGHT,
   FULL_BUILDING_CAPACITY,
@@ -22,6 +20,8 @@ import type {
 } from "../types";
 import type { SimEdge, SimNode } from "./types";
 import { createEvacuationGraph } from "./graph";
+import { ALL_CLASSROOMS, campusBuildingsFor, campusRoomsFor, BLOCK_LEVELS } from "./campusData";
+import { SITE_LAYOUT, SHRINE_CENTER, SHRINE_ROTATION_Y, CAMPUS_AMENITIES, type SiteLayout } from "../building1/siteLayout";
 
 const MODEL_HASH = GENERATED_MODEL_HASH;
 const SCHOOL_NAME = SCHOOL_NAME_TH;
@@ -50,8 +50,11 @@ function shapeForNode(node: SimNode): AnnotationShape {
   return node.type === "room" || node.type === "corridor" || node.type === "assembly" ? "box" : "point";
 }
 
-function classroomForNode(node: SimNode): RoomModuleDefinition | undefined {
-  return node.type === "room" ? CLASSROOMS.find((room) => room.id === node.id) : undefined;
+function classroomForNode(node: SimNode, layout: SiteLayout): RoomModuleDefinition | undefined {
+  const room=node.type==="room"?ALL_CLASSROOMS.find(room=>room.id===node.id):undefined;
+  if(!room?.walkPosition)return room;
+  const definition=campusRoomsFor(layout).find(r=>r.id===node.id);
+  return definition ? {...room,position:definition.position} : room;
 }
 
 function physicalPosition(node: SimNode, room: RoomModuleDefinition | undefined): Vec3 {
@@ -63,20 +66,22 @@ function physicalPosition(node: SimNode, room: RoomModuleDefinition | undefined)
   return [...node.position] as Vec3;
 }
 
-function sizeForNode(node: SimNode, room: RoomModuleDefinition | undefined): Vec3 {
+function sizeForNode(node: SimNode, room: RoomModuleDefinition | undefined, layout: SiteLayout): Vec3 {
   if (room) return [...room.size] as Vec3;
   switch (node.type) {
     case "door": return [1.12, 2.36, 0.18];
     case "corridor": return node.wing === "pink" ? [8, 0.3, Math.max(2.2, node.capacity / 4)] : [Math.max(2.2, node.capacity / 4), 0.3, 8];
     case "stair": return [2.2, FLOOR_HEIGHT, 5.8];
     case "exit": return [2.4, 2.62, 0.25];
-    case "assembly": return [17.5, 0.2, 12.5];
+    case "assembly": return node.id.startsWith("campus-parking-")
+      ? [layout.fieldRotated ? 14 : 3.5, 0.2, 18]
+      : layout.fieldRotated ? [12.5, 0.2, 17.5] : [17.5, 0.2, 12.5];
     default: return [1, 1, 1];
   }
 }
 
 function sourcePathForNode(node: SimNode, room: RoomModuleDefinition | undefined): string {
-  if (room) return `/BUILDING_1/FLOOR_${room.floor}/${room.id}`;
+  if (room) return `/${room.buildingId ?? "building-1"}/FLOOR_${room.floor}/${room.id}`;
   if (node.type === "door" && node.id.startsWith("sim-door-")) {
     const owner = CLASSROOMS.find((candidate) => `sim-door-${candidate.id}` === node.id);
     if (owner) return `/BUILDING_1/FLOOR_${owner.floor}/${owner.id}/DOOR`;
@@ -85,11 +90,11 @@ function sourcePathForNode(node: SimNode, room: RoomModuleDefinition | undefined
   return `/NAVIGATION/${node.id}`;
 }
 
-function semanticNode(node: SimNode, timestamp: string): SemanticAnnotation {
-  const room = classroomForNode(node);
+function semanticNode(node: SimNode, timestamp: string, layout: SiteLayout): SemanticAnnotation {
+  const room = classroomForNode(node,layout);
   const type = annotationTypeForNode(node);
   const peopleCount = room?.peopleCount ?? 0;
-  const buildingId = node.phase === "outdoor" || node.phase === "assembly" ? "sports-field" : BUILDING_ID;
+  const buildingId = node.wing === "building-3" || node.wing === "building-4" ? node.wing : node.id.startsWith("campus-parking-") ? "parking-assembly" : node.phase === "outdoor" || node.phase === "assembly" ? "sports-field" : BUILDING_ID;
   return {
     id: node.id,
     type,
@@ -97,7 +102,7 @@ function semanticNode(node: SimNode, timestamp: string): SemanticAnnotation {
     name: node.name,
     position: physicalPosition(node, room),
     rotation: [0, 0, 0],
-    size: sizeForNode(node, room),
+    size: sizeForNode(node, room, layout),
     buildingId,
     floor: node.floor,
     peopleCount,
@@ -117,6 +122,7 @@ function semanticNode(node: SimNode, timestamp: string): SemanticAnnotation {
 
 function semanticEdge(edge: SimEdge): SemanticConnection {
   return {
+    waypoints: edge.waypoints?.map(p=>[...p] as Vec3) ?? [],
     id: edge.id,
     fromId: edge.from,
     toId: edge.to,
@@ -138,9 +144,9 @@ function semanticEdge(edge: SimEdge): SemanticConnection {
  * simulation. The current model mirrors every simulation node and edge into the Semantic Map so QA,
  * editor inspection, exports, and runtime all describe the same physical route network.
  */
-export function buildGeneratedSemanticMap(): SemanticMapFile {
+export function buildGeneratedSemanticMap(includeCampus = true, layout: SiteLayout = SITE_LAYOUT, siteDetails = true, legacyCorridorCenters = false): SemanticMapFile {
   const now = new Date().toISOString();
-  const graph = createEvacuationGraph();
+  const graph = createEvacuationGraph(includeCampus, layout, legacyCorridorCenters);
   const annotations: SemanticAnnotation[] = [
     {
       id: BUILDING_ID,
@@ -168,9 +174,9 @@ export function buildGeneratedSemanticMap(): SemanticMapFile {
       type: "football-field",
       shape: "box",
       name: "สนามฟุตบอล / จุดรวมพลหลัก",
-      position: FIELD_CENTER,
+      position: layout.fieldCenter,
       rotation: [0, 0, 0],
-      size: FIELD_SIZE,
+      size: layout.fieldSize,
       buildingId: "sports-field",
       floor: 0,
       peopleCount: 0,
@@ -210,8 +216,30 @@ export function buildGeneratedSemanticMap(): SemanticMapFile {
     });
   }
 
-  annotations.push(...graph.nodes.map((node) => semanticNode(node, now)));
+  for (const node of graph.nodes) {
+    const annotation=semanticNode(node,now,layout);
+    if(!includeCampus && node.type==="room")annotation.peopleCount=CLASSROOMS.find(r=>r.id===node.id)?.peopleCount??0;
+    annotations.push(annotation);
+  }
+  if(includeCampus)for(const b of campusBuildingsFor(layout)){
+    const complete=siteDetails&&layout.fieldRotated;
+    annotations.push({...annotations[0],id:b.id,name:`อาคาร ${b.number}`,buildingId:b.id,position:[b.x,complete?7.65:9,b.z],size:complete?[78,15.3,16.2]:[77,19.5,16],capacity:960,sourceObjectName:b.id,sourceObjectPath:`/${b.id}`,tags:["campus-calibration-v1"],notes:"อาคารจากโมเดลร่วม · node/edge ตรงกับ Simulation Graph"});
+    for(let f=1;f<=4;f++)annotations.push({...annotations[0],id:`${b.id}-floor-${f}`,type:"floor",name:`อาคาร ${b.number} ชั้น ${f}`,buildingId:b.id,floor:f,position:[b.x,BLOCK_LEVELS[f-1]+1.5,b.z],size:[77,3.3,16],capacity:f===1?0:320,visible:false,sourceObjectPath:`/${b.id}/FLOOR_${f}`});
+  }
   const connections = graph.edges.map(semanticEdge);
+  if(includeCampus && layout.fieldRotated)annotations.push({
+    ...annotations[0],id:"site-central-shrine",type:"restricted-area",name:"หอพระและฐานวงกลม",
+    buildingId:"site-shrine",position:[SHRINE_CENTER[0],6,SHRINE_CENTER[2]],size:[36.2,12,36.2],
+    rotation:[0,siteDetails?SHRINE_ROTATION_Y:0,0],
+    capacity:0,notes:"สิ่งปลูกสร้างกลางลาน · เส้นทางอพยพเว้นรอบฐานและบันได",tags:["site-landmark","obstacle"],
+    sourceObjectName:"CENTRAL_SHRINE_PAVILION",sourceObjectPath:"/SITE/CENTRAL_SHRINE_PAVILION",
+  });
+  if(includeCampus&&layout.fieldRotated&&siteDetails)for(const a of CAMPUS_AMENITIES)annotations.push({
+    ...annotations[0],id:a.id,name:a.name,buildingId:a.id,position:[a.x,a.height/2,a.z],
+    size:[a.width,a.height,a.depth],capacity:0,tags:["reference-context","obstacle"],
+    sourceObjectName:a.id,sourceObjectPath:`/SITE/${a.id}`,
+    notes:"อาคารประกอบอ้างอิงภาพภายนอก · ยังไม่มีแปลนภายในที่สำรวจ จึงไม่กำหนดประชากรหรือเส้นทางภายใน",
+  });
 
   return {
     schema: "skr-semantic-map",

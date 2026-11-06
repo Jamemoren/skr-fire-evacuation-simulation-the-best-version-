@@ -1,4 +1,5 @@
-import { CLASSROOMS, CLASSROOM_CAPACITY, TARGET_POPULATION, balancedOccupancyAt, type RoomModuleDefinition } from "../building1/building1Data";
+import { CLASSROOM_CAPACITY, TARGET_POPULATION, balancedOccupancyAt, type RoomModuleDefinition } from "../building1/building1Data";
+import { ALL_CLASSROOMS as CLASSROOMS } from "./campusData";
 import { walkY } from "./graph";
 import type { AgentPublicSnapshot, Vec3 } from "./types";
 
@@ -12,6 +13,10 @@ export function normalizeStudentPopulation(population: number): number {
 
 /** The preview and the live simulation share the same floor height and spawn slots. */
 export function studentStartPosition(room: RoomModuleDefinition, index: number): Vec3 {
+  if(room.walkPosition){
+    const col=index%6,row=Math.floor(index/6),dx=Math.min(.65,(room.size[0]-.9)/5);
+    return [room.position[0]-2.5*dx+col*dx,room.walkPosition[1],room.position[2]-2.55+row*.8];
+  }
   const col = index % 8;
   const row = Math.floor(index / 8);
   const y = walkY(room.floor);

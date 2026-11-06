@@ -1,0 +1,128 @@
+/* =============================================================================
+   Precision Intelligence — design tokens
+   One source for colour, light, type, spacing, shape and motion.
+   ========================================================================== */
+@font-face { font-family: "IBM Plex Sans Thai"; font-style: normal; font-weight: 400; font-display: swap; src: url("/fonts/ibm-plex-sans-thai-thai-400-normal.woff2") format("woff2"); unicode-range: U+02D7, U+0303, U+0331, U+0E01-0E5B, U+200C-200D, U+25CC; }
+@font-face { font-family: "IBM Plex Sans Thai"; font-style: normal; font-weight: 500; font-display: swap; src: url("/fonts/ibm-plex-sans-thai-thai-500-normal.woff2") format("woff2"); unicode-range: U+02D7, U+0303, U+0331, U+0E01-0E5B, U+200C-200D, U+25CC; }
+@font-face { font-family: "IBM Plex Sans Thai"; font-style: normal; font-weight: 600; font-display: swap; src: url("/fonts/ibm-plex-sans-thai-thai-600-normal.woff2") format("woff2"); unicode-range: U+02D7, U+0303, U+0331, U+0E01-0E5B, U+200C-200D, U+25CC; }
+@font-face { font-family: "IBM Plex Sans Thai"; font-style: normal; font-weight: 700; font-display: swap; src: url("/fonts/ibm-plex-sans-thai-thai-700-normal.woff2") format("woff2"); unicode-range: U+02D7, U+0303, U+0331, U+0E01-0E5B, U+200C-200D, U+25CC; }
+@font-face { font-family: "IBM Plex Sans Thai"; font-style: normal; font-weight: 400; font-display: swap; src: url("/fonts/ibm-plex-sans-thai-latin-400-normal.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "IBM Plex Sans Thai"; font-style: normal; font-weight: 500; font-display: swap; src: url("/fonts/ibm-plex-sans-thai-latin-500-normal.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "IBM Plex Sans Thai"; font-style: normal; font-weight: 600; font-display: swap; src: url("/fonts/ibm-plex-sans-thai-latin-600-normal.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "IBM Plex Sans Thai"; font-style: normal; font-weight: 700; font-display: swap; src: url("/fonts/ibm-plex-sans-thai-latin-700-normal.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
+:root {
+  /* Brand */
+  --pi-midnight: #0b1426;
+  --pi-navy: #15345b;
+  --pi-sapphire: #245da8;
+  --pi-cyan: #40b8d5;
+  --pi-pearl: #f5f8fc;
+  --pi-white: #ffffff;
+  /* Slate scale (secondary text, rules, quiet surfaces) */
+  --pi-slate-50: #eef3f9;
+  --pi-slate-100: #e2e9f2;
+  --pi-slate-200: #cfd9e5;
+  --pi-slate-300: #a9b7c8;
+  --pi-slate-400: #7d8ea4;
+  --pi-slate-500: #5d6f86;
+  --pi-slate-600: #45556b;
+  --pi-slate-700: #2f3d51;
+  /* Status — always paired with text or an icon */
+  --pi-safe: #138a5e;
+  --pi-safe-soft: #e3f5ed;
+  --pi-risk: #c2620a;
+  --pi-risk-soft: #fdf0e1;
+  --pi-danger: #c8323a;
+  --pi-danger-soft: #fbe7e8;
+  --pi-info: var(--pi-sapphire);
+  --pi-info-soft: #e5eefa;
+  /* On dark surfaces */
+  --pi-safe-on-dark: #4fd6a0;
+  --pi-risk-on-dark: #ffae5c;
+  --pi-danger-on-dark: #ff7a80;
+
+  /* Surfaces: dark = command layer, light = reading and forms */
+  --pi-surface-command: linear-gradient(180deg, rgba(17, 33, 60, .94), rgba(11, 20, 38, .94));
+  --pi-surface-dark: rgba(11, 20, 38, .9);
+  --pi-surface-dark-raised: rgba(21, 52, 91, .72);
+  --pi-surface-light: rgba(250, 252, 255, .96);
+  --pi-surface-light-raised: #ffffff;
+  --pi-surface-sunken: #eef3f9;
+  --pi-rule: rgba(21, 52, 91, .11);
+  --pi-rule-strong: rgba(21, 52, 91, .2);
+  --pi-rule-on-dark: rgba(173, 205, 240, .16);
+  --pi-text: #0f1f36;
+  --pi-text-2: #45556b;
+  --pi-text-3: #5d6f86;
+  --pi-text-on-dark: #f5f8fc;
+  --pi-text-on-dark-2: #b9c8dc;
+
+  /* Light: one key light from the top-left, cyan rim on dark surfaces */
+  --pi-grad-brand: linear-gradient(118deg, #f5f8fc 0%, #bfe9f5 42%, #8fd3e6 70%, #f5f8fc 100%);
+  --pi-grad-primary: linear-gradient(160deg, #3a7fd0 0%, #245da8 46%, #1a4683 100%);
+  --pi-grad-primary-hover: linear-gradient(160deg, #4a8fe0 0%, #2c6bbd 46%, #1f4f93 100%);
+  --pi-grad-safe: linear-gradient(160deg, #23a774 0%, #138a5e 55%, #0e6b49 100%);
+  --pi-grad-risk: linear-gradient(160deg, #e48b2c 0%, #c2620a 60%, #9c4e08 100%);
+  --pi-grad-header-glow: radial-gradient(120% 220% at 0% 0%, rgba(64, 184, 213, .24) 0%, transparent 42%), radial-gradient(80% 160% at 100% 0%, rgba(36, 93, 168, .32) 0%, transparent 55%);
+  --pi-grad-panel-sheen: linear-gradient(180deg, rgba(255, 255, 255, .9), rgba(255, 255, 255, 0) 120px);
+  --pi-rim-dark: inset 0 1px 0 rgba(173, 220, 255, .14), inset 0 0 0 1px rgba(173, 205, 240, .1);
+  --pi-rim-light: inset 0 1px 0 rgba(255, 255, 255, .95);
+
+  /* Type */
+  --pi-font: "IBM Plex Sans Thai", "Leelawadee UI", "Noto Sans Thai", "Segoe UI", system-ui, sans-serif;
+  --pi-font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --pi-fs-display: 22px;
+  --pi-fs-title: 18px;
+  --pi-fs-heading: 15px;
+  --pi-fs-body: 14px;
+  --pi-fs-label: 13px;
+  --pi-fs-caption: 12px;
+  --pi-fs-kpi: 28px;
+  --pi-lh-tight: 1.3;   /* still clears Thai upper marks */
+  --pi-lh-body: 1.55;
+
+  /* Spacing 4/8/12/16/24/32 */
+  --pi-1: 4px;
+  --pi-2: 8px;
+  --pi-3: 12px;
+  --pi-4: 16px;
+  --pi-6: 24px;
+  --pi-8: 32px;
+
+  /* Shape */
+  --pi-r-sm: 8px;
+  --pi-r-md: 12px;
+  --pi-r-lg: 16px;
+  --pi-r-xl: 20px;
+  --pi-r-pill: 999px;
+  --pi-control-h: 40px;
+  --pi-control-h-sm: 32px;
+  --pi-touch: 44px;
+
+  /* Elevation */
+  --pi-shadow-1: 0 1px 2px rgba(11, 20, 38, .08), 0 2px 8px rgba(11, 20, 38, .06);
+  --pi-shadow-2: 0 4px 12px rgba(11, 20, 38, .1), 0 12px 32px rgba(11, 20, 38, .1);
+  --pi-shadow-3: 0 10px 30px rgba(11, 20, 38, .18), 0 24px 60px rgba(11, 20, 38, .16);
+  --pi-focus: 0 0 0 2px #fff, 0 0 0 4px #2f7fd6;
+  --pi-focus-dark: 0 0 0 2px #0b1426, 0 0 0 4px #6fd3ec;
+
+  /* Motion */
+  --pi-ease: cubic-bezier(.2, .8, .2, 1);
+  --pi-ease-out: cubic-bezier(.16, 1, .3, 1);
+  --pi-dur-press: 140ms;
+  --pi-dur-panel: 280ms;
+  --pi-dur-reveal: 520ms;
+
+  /* Layout */
+  --pi-gap: 16px;
+  --pi-header-h: 64px;
+  --pi-left-w: 336px;
+  --pi-right-w: 312px;
+  --pi-rail-w: 52px;
+  --pi-results-h: 64px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --pi-dur-press: 1ms; --pi-dur-panel: 1ms; --pi-dur-reveal: 1ms; }
+}

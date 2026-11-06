@@ -30,7 +30,7 @@ export function ConnectionsLayer() {
         return (
           <Line
             key={connection.id}
-            points={[from, to]}
+            points={[from, ...(connection.waypoints ?? []), to]}
             color={connection.enabled ? (selected ? "#ffffff" : CONNECTION_COLORS[connection.type]) : "#64748b"}
             lineWidth={selected ? Math.max(3, connection.width + 1) : Math.max(1, Math.min(6, connection.width))}
             dashed={!connection.enabled || !connection.bidirectional}
@@ -40,7 +40,8 @@ export function ConnectionsLayer() {
             opacity={connection.enabled ? 0.9 : 0.45}
             onClick={(event) => {
               event.stopPropagation();
-              selectConnection(connection.id);
+              const state = useMapperStore.getState();
+              if (!state.transformDragging && Date.now() - state.lastTransformAt >= 250) selectConnection(connection.id);
             }}
           />
         );

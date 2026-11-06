@@ -35,7 +35,8 @@ export function DaylightEnvironment() {
         shadow-camera-right={210}
         shadow-camera-top={210}
         shadow-camera-bottom={-210}
-        shadow-bias={-0.00006}
+        shadow-bias={-0.00015}
+        shadow-normalBias={0.14}
       />
       <directionalLight position={[-110, 94, -95]} intensity={0.5} color="#acd7f6" />
 
@@ -50,9 +51,9 @@ export function DaylightEnvironment() {
         mieDirectionalG={0.84}
       />
 
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.09, 70]} receiveShadow>
+      <mesh name="DAYLIGHT_GROUND" rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.09, 70]} receiveShadow>
         <planeGeometry args={[1050, 1050]} />
-        <meshStandardMaterial color="#d5e7d9" roughness={0.98} metalness={0} side={THREE.DoubleSide} />
+        <meshStandardMaterial color="#a4a69e" roughness={0.98} metalness={0} side={THREE.DoubleSide} />
       </mesh>
     </>
   );

@@ -3,6 +3,7 @@ import { useMemo, type ReactNode } from "react";
 import * as THREE from "three";
 import { FIELD_CENTER } from "./building1Data";
 import { useBuilding1Store } from "./building1Store";
+import { SITE_LAYOUT } from "./siteLayout";
 
 const FIELD_GREEN = "#4f9f61";
 const TRACK = "#d9a34f";
@@ -225,7 +226,7 @@ export function SportsFieldModel() {
   if (!show) return null;
 
   return (
-    <group name="SPORTS_FIELD_ASSEMBLY_MODEL" position={[FIELD_CENTER[0], 0, FIELD_CENTER[2]]}>
+    <group name="SPORTS_FIELD_ASSEMBLY_MODEL" position={[FIELD_CENTER[0], 0, FIELD_CENTER[2]]} rotation-y={SITE_LAYOUT.fieldRotated ? Math.PI/2 : 0}>
       <FieldEnvironment />
       <RunningTrack />
       <FootballPitch />
@@ -238,8 +239,8 @@ export function SportsFieldModel() {
           </div>
         </Html>
       )}
-      <Html center position={[0, 1.15, OUTER_RADIUS + 5.1]} distanceFactor={22}>
-        <div className="field-entry-label"><strong>ASSEMBLY GATE</strong><span>จุดรับคนจากตึก 1</span></div>
+      <Html center position={[52, 1.15, 0]} distanceFactor={22}>
+        <div className="field-entry-label"><strong>ASSEMBLY GATE</strong><span>จุดรับคนจากอาคาร 1, 3, 4</span></div>
       </Html>
     </group>
   );

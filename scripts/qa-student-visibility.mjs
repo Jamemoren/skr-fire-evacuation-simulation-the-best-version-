@@ -20,6 +20,9 @@ const { yOffsetForRender, studentWorldBounds } = require('./simulation/studentVi
 const { EvacuationRuntime } = require('./simulation/runtime.js');
 const { walkY } = require('./simulation/graph.js');
 const { CLASSROOMS } = require('./building1/building1Data.js');
+const { ALL_CLASSROOMS, BLOCK_LEVELS } = require('./simulation/campusData.js');
+// Campus expansion (Nov 2026): Buildings 3–4 use their own floor levels; Building 1 keeps walkY().
+const floorY = (s) => /^b[34]-/.test(s.roomId) ? BLOCK_LEVELS[s.floor-1]+.2 : walkY(s.floor);
 for (const count of [1, 40, 1500, 3000]) {
   const students = createWaitingStudents(count);
   assert.equal(students.length, count);
@@ -30,7 +33,7 @@ for (const count of [1, 40, 1500, 3000]) {
   assert.equal(live.length, count);
   students.forEach((student, i) => {
     assert.equal(student.floor >= 2 && student.floor <= 9, true);
-    assert.equal(student.position[1], walkY(student.floor));
+    assert.equal(student.position[1], floorY(student));
     assert.equal(student.status, 'waiting');
     assert.equal(live[i].roomId, student.roomId);
     assert.equal(live[i].gender, student.gender);
@@ -40,7 +43,7 @@ for (const count of [1, 40, 1500, 3000]) {
     const view = {viewMode:'interior', selectedFloor:floor, explodeFloors:false};
     const expected = students.filter(s => s.floor === floor).length;
     assert.equal(students.filter(s => yOffsetForRender(s.floor,view) !== null).length, expected);
-    if (count === 3000) assert.equal(expected, 375);
+    if (count === 3000) assert.equal(students.filter(s => s.floor === floor && s.roomId.startsWith('b1-')).length, 250);
     for (const s of students) {
       const offset = yOffsetForRender(s.floor,{...view, explodeFloors:true});
       assert.equal(offset, s.floor === floor ? (floor-1)*1.1 : null);
@@ -61,11 +64,12 @@ assert.equal(normalizeStudentPopulation(99999),3000);
 assert.equal(yOffsetForRender(0,{viewMode:'exterior',selectedFloor:9,explodeFloors:true}),0);
 assert.equal(yOffsetForRender(1,{viewMode:'exterior',selectedFloor:9,explodeFloors:true}),0);
 const students = createWaitingStudents(3000);
-assert.equal(new Set(students.map(s => s.roomId)).size,CLASSROOMS.length);
+assert.equal(new Set(students.map(s => s.roomId)).size,ALL_CLASSROOMS.length);
+assert.equal(new Set(students.filter(s => s.roomId.startsWith('b1-')).map(s => s.roomId)).size,CLASSROOMS.length);
 for (const mode of ['exterior','structure','cutaway','interior','single-floor']) {
   const b = {viewMode:mode, selectedFloor:5, explodeFloors:false};
-  const eligible = students.filter(s => yOffsetForRender(s.floor,b) !== null);
-  assert.equal(eligible.length, mode==='cutaway' ? 1500 : mode==='interior'||mode==='single-floor' ? 375 : 3000);
+  const eligible = students.filter(s => s.roomId.startsWith('b1-') && yOffsetForRender(s.floor,b) !== null);
+  assert.equal(eligible.length, mode==='cutaway' ? 1000 : mode==='interior'||mode==='single-floor' ? 250 : 2000);
 }
 // Reproduce the old local-space culling failure after translating/rotating/scaling a model.
 let reproducedOldFailure = false;

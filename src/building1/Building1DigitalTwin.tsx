@@ -68,6 +68,7 @@ import { CampusIdentity } from "./CampusIdentity";
 import { createClassroomFront, createSchoolChair, createSchoolDesk, createTowerCorner, ROOM_FRONT } from "./architecturalGeometry";
 import { ArchitecturalAudit } from "./architecturalAudit";
 import { useWalkStore } from "../navigation/walkStore";
+import { useRoleplayStore } from "../roleplay/roleplayStore";
 import { studentStartPosition } from "../simulation/studentPlacement";
 
 const PINK_BANDS = ["#fff1f7", "#f7daed", "#f0b9df", "#e99bd5", "#e27acb", "#d95dbf", "#cd45b2", "#c036a5", "#ac298f"];
@@ -1738,8 +1739,11 @@ function RoomFixtures({ room, base }: { room: RoomModuleDefinition; base: number
 
 function WalkCeilings() {
   const walking = useWalkStore((state) => state.enabled);
-  const floor = useWalkStore((state) => state.floor);
-  if (!walking || floor === 1) return null;
+  const walkFloor = useWalkStore((state) => state.floor);
+  // The roleplay character on an upper floor of Building 1 needs the same ceiling.
+  const roleplayFloor = useRoleplayStore((state) => (state.phase === "playing" && state.guide?.place.buildingId === "building-1" ? state.guide.place.floor : null));
+  const floor = roleplayFloor ?? walkFloor;
+  if ((!walking && roleplayFloor === null) || floor === 1) return null;
   const y = floorBase(floor) + 3.25;
   return <group name="B1_WALK_VIEW_CEILINGS">
     <mesh position={[PINK_WING_CENTER[0], y, PINK_WING_CENTER[2] + 0.1]} castShadow><boxGeometry args={[PINK_WING_LENGTH, 0.08, WING_DEPTH + 0.2]} /><meshStandardMaterial color="#e7eae6" roughness={0.96} /></mesh>
@@ -1988,22 +1992,22 @@ export function Building1DigitalTwin() {
 
   useEffect(() => {
     setModelReport({
-      modelName: "อาคารเรียน 1 และสนามฟุตบอล — แบบจำลองดิจิทัลเพื่อการอพยพ",
+      modelName: "อาคาร 1, 3, 4 ถนนจอดรถ และจุดรวมพล — แบบจำลองดิจิทัลเพื่อการอพยพ",
       fileSize: 0,
       sha256: "generated-from-building1-plans-field-official-physics",
       objectCount: 3508,
       meshCount: 3002,
       materialCount: 51,
       triangleCount: 433000,
-      boundsMin: [-72, 0, -24],
-      boundsMax: [62, TOTAL_HEIGHT + 14, 138],
-      boundsSize: [134, TOTAL_HEIGHT + 14, 162],
-      boundsCenter: [-5, (TOTAL_HEIGHT + 14) / 2, 57],
+      boundsMin: [-294, 0, -64],
+      boundsMax: [62, TOTAL_HEIGHT + 14, 180],
+      boundsSize: [356, TOTAL_HEIGHT + 14, 244],
+      boundsCenter: [-116, (TOTAL_HEIGHT + 14) / 2, 58],
       items: [],
     });
     setModelError(null);
     setModelLoading(false);
-    addToast("success", "เปิดแบบจำลองอาคารเรียน 1 สนามฟุตบอล ลู่วิ่ง และจุดรวมพลสำหรับ 3,000 คนแล้ว");
+    addToast("success", "เปิดผังอาคาร 1, 3, 4 พร้อมทางเชื่อม ถนนจอดรถ และเส้นทางอพยพ 3,000 คนแล้ว");
   }, [addToast, setModelError, setModelLoading, setModelReport]);
 
   return (

@@ -1,0 +1,108 @@
+/* Roleplay Evacuation Simulator — first-person view is the main area; setup, HUD and the player's
+   phone sit on top. Everything carries a SIMULATOR label. */
+
+.rp-root { position: absolute; inset: 0; pointer-events: none; z-index: 40; font-family: var(--pi-font); color: var(--pi-text); }
+.rp-root > * { pointer-events: auto; }
+.rp-root h2, .rp-modal h2 { color: var(--pi-midnight); text-transform: none; letter-spacing: 0; font-family: var(--pi-font); font-weight: 700; }
+.rp-root kbd, .rp-modal kbd { color: inherit; display: inline-block; min-width: 1.6em; padding: 0 .35em; margin: 0 .1em; border: 1px solid rgba(255,255,255,.35); border-bottom-width: 2px; border-radius: 5px; font: 600 12px/1.6 var(--pi-font); text-align: center; background: rgba(255,255,255,.08); }
+
+.rp-tag { display: inline-flex; align-items: center; min-height: 24px; padding: 1px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: .02em; color: #3b2400; background: #ffcf7a; border: 1px solid #f0a93a; }
+.rp-tag.is-small { min-height: 20px; padding: 0 8px; font-size: 11px; }
+.rp-muted { color: var(--pi-text-3); font-size: 13.5px; margin: 6px 0; }
+.rp-alert { margin: 8px 0; padding: 10px 12px; border-radius: 10px; font-size: 14px; }
+.rp-alert.is-warn { color: #6a3a00; background: #fff4df; border: 1px solid #f3c983; }
+.rp-note { margin: 10px 0 0; padding: 8px 10px; border-radius: 8px; background: var(--pi-info-soft); font-size: 14px; }
+
+.rp-btn { min-height: 40px; padding: 8px 16px; border: 1px solid var(--pi-rule-strong); border-radius: 10px; font: 600 14.5px/1.3 var(--pi-font); color: var(--pi-text); background: #fff; cursor: pointer; }
+.rp-btn:hover { background: var(--pi-slate-50); }
+.rp-btn:focus-visible { outline: 3px solid var(--pi-cyan); outline-offset: 2px; }
+.rp-btn.is-primary { color: #fff; background: var(--pi-sapphire); border-color: var(--pi-sapphire); }
+.rp-btn.is-primary:hover { background: #1d4f91; }
+.rp-btn.is-primary:disabled { background: var(--pi-slate-300); border-color: var(--pi-slate-300); cursor: not-allowed; }
+.rp-btn.is-danger { color: var(--pi-danger); border-color: rgba(200, 50, 58, .45); }
+.rp-btn.is-sm { min-height: 32px; padding: 4px 12px; font-size: 13px; }
+.rp-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+.rp-actions.is-column { flex-direction: column; align-items: stretch; }
+
+/* ---------------------------------------------------------------- setup */
+.rp-setup {
+  position: absolute; top: 16px; left: 16px; bottom: 16px; width: min(520px, calc(100vw - 32px)); overflow-y: auto;
+  padding: 18px 18px 14px; border-radius: 18px; background: var(--pi-surface-light); border: 1px solid var(--pi-rule);
+  box-shadow: 0 18px 50px rgba(11, 20, 38, .28);
+  animation: rp-in .22s ease-out;
+}
+.rp-setup-head h2 { margin: 8px 0 4px; font-size: 21px; line-height: 1.35; }
+.rp-setup-head h2:focus { outline: none; }
+.rp-setup-head p { margin: 0 0 10px; color: var(--pi-text-2); font-size: 14.5px; }
+.rp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.rp-field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; color: var(--pi-text-2); min-width: 0; }
+.rp-field.is-wide { grid-column: 1 / -1; }
+.rp-field select { min-height: 40px; padding: 6px 10px; border: 1px solid var(--pi-rule-strong); border-radius: 10px; font: 500 14.5px var(--pi-font); color: var(--pi-text); background: #fff; }
+.rp-closures { margin: 0; padding: 8px 10px; border: 1px solid var(--pi-rule); border-radius: 10px; }
+.rp-closures legend { padding: 0 4px; }
+.rp-closures > div { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; }
+.rp-check { display: flex; align-items: flex-start; gap: 8px; font-weight: 500; font-size: 13.5px; color: var(--pi-text); padding: 3px 0; cursor: pointer; }
+.rp-check input { margin-top: 3px; width: 16px; height: 16px; flex: none; }
+.rp-check-result { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: var(--pi-surface-sunken); font-size: 14px; }
+.rp-check-result p { margin: 0 0 4px; }
+.rp-ok { color: #0d5c3f; }
+.rp-bad { color: #6a2a00; }
+.rp-bad ul { margin: 4px 0 8px 1.2em; padding: 0; }
+.rp-keys { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 12px 0 0; padding: 10px 12px; list-style: none; border-radius: 12px; color: var(--pi-text-on-dark); background: var(--pi-surface-dark); font-size: 13px; }
+
+/* ---------------------------------------------------------------- play HUD */
+.rp-crosshair { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; pointer-events: none !important; }
+.rp-crosshair::before, .rp-crosshair::after { content: ""; position: absolute; background: rgba(255,255,255,.85); box-shadow: 0 0 2px rgba(0,0,0,.7); }
+.rp-crosshair::before { left: 6px; top: 0; width: 2px; height: 14px; }
+.rp-crosshair::after { top: 6px; left: 0; width: 14px; height: 2px; }
+.rp-hud {
+  position: absolute; top: 14px; left: 14px; max-width: 360px; padding: 12px 14px; border-radius: 14px;
+  color: var(--pi-text-on-dark); background: var(--pi-surface-dark); border: 1px solid var(--pi-rule-on-dark); font-size: 13.5px;
+}
+.rp-hud dl { display: grid; grid-template-columns: repeat(4, auto); gap: 2px 14px; margin: 8px 0 6px; }
+.rp-hud dt { font-size: 11.5px; color: var(--pi-text-on-dark-2); }
+.rp-hud dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.rp-place { margin: 2px 0 6px; }
+.rp-help { margin: 0 0 8px; color: var(--pi-text-on-dark-2); line-height: 1.8; }
+.rp-toast { position: absolute; left: 50%; top: 18px; transform: translateX(-50%); padding: 10px 16px; border-radius: 12px; color: var(--pi-text-on-dark); background: var(--pi-surface-dark); font-size: 14px; z-index: 41; }
+
+/* ---------------------------------------------------------------- player phone */
+.rp-phone {
+  position: absolute; top: 12px; right: 12px; bottom: 12px; display: flex; flex-direction: column; min-width: 300px;
+  border-radius: 18px; background: var(--pi-surface-command); border: 1px solid var(--pi-rule-on-dark); box-shadow: 0 18px 50px rgba(0,0,0,.35);
+  animation: rp-in .22s ease-out;
+}
+.rp-phone.is-min { bottom: auto; min-width: 0; }
+.rp-phone-resize { position: absolute; left: -6px; top: 40px; bottom: 40px; width: 12px; cursor: ew-resize; border-radius: 6px; }
+.rp-phone-resize:hover, .rp-phone-resize:focus-visible { background: rgba(64, 184, 213, .35); outline: none; }
+.rp-phone-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 10px 12px; color: var(--pi-text-on-dark); }
+.rp-phone-head strong { font-size: 14.5px; }
+.rp-phone-tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+.rp-switch { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--pi-text-on-dark-2); cursor: pointer; white-space: nowrap; }
+.rp-phone-body { position: relative; flex: 1; min-height: 0; display: flex; }
+.rp-phone-body .mh-stage { flex: 1; }
+.rp-phone-body > .rp-alert { margin: 12px; align-self: flex-start; }
+
+/* ---------------------------------------------------------------- menu + results */
+.rp-modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: rgba(6, 12, 24, .55); font-family: var(--pi-font); color: var(--pi-text); }
+.rp-modal-card { width: min(520px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; padding: 20px; border-radius: 18px; background: #fff; box-shadow: 0 24px 70px rgba(0,0,0,.4); animation: rp-in .2s ease-out; }
+.rp-modal-card h2 { margin: 8px 0 6px; font-size: 22px; }
+.rp-result.is-arrived h2 { color: var(--pi-safe); }
+.rp-result.is-failed h2 { color: var(--pi-danger); }
+.rp-result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin: 12px 0; }
+.rp-result-grid div { padding: 8px 10px; border-radius: 10px; background: var(--pi-surface-sunken); }
+.rp-result-grid dt { font-size: 12px; color: var(--pi-text-3); }
+.rp-result-grid dd { margin: 2px 0 0; font-size: 16px; font-weight: 700; }
+.rp-reroutes { margin: 0 0 8px 1.2em; padding: 0; font-size: 14px; }
+.rp-perf { margin-top: 12px; font-size: 13.5px; }
+.rp-perf summary { cursor: pointer; font-weight: 600; }
+.rp-perf ul { margin: 6px 0 0 1.1em; padding: 0; }
+
+@keyframes rp-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .rp-setup, .rp-phone, .rp-modal-card { animation: none; }
+}
+@media (max-width: 900px) {
+  .rp-grid, .rp-closures > div, .rp-result-grid { grid-template-columns: 1fr; }
+  .rp-phone { left: auto; width: min(360px, 92vw) !important; }
+}

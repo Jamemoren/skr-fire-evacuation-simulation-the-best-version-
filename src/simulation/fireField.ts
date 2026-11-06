@@ -1,5 +1,6 @@
 import { CLASSROOMS, FLOOR_COUNT, FLOOR_HEIGHT, STUDENT_BODY_HEIGHT } from "../building1/building1Data";
 import type { FireSource, Vec3 } from "./types";
+import { ALL_CLASSROOMS, campusFloorAt } from "./campusData";
 
 export interface FlameCell {
   position: Vec3;
@@ -11,7 +12,8 @@ export interface FlameCell {
 export const FLAME_CONTACT_CORE = .72;
 export const AGENT_BODY_HEIGHT = STUDENT_BODY_HEIGHT;
 
-export function fireFloorAt(y: number): number {
+export function fireFloorAt(y: number,position?:Vec3): number {
+  const campus=position && campusFloorAt(position);if(campus)return campus;
   return y < FLOOR_HEIGHT * .55 ? 1 : Math.max(1, Math.min(FLOOR_COUNT, Math.floor((y + .15) / FLOOR_HEIGHT) + 1));
 }
 
@@ -78,6 +80,8 @@ function layoutFor(fire: FireSource): Layout {
     minY: Math.min(...all.map((p) => p[1])), maxY: Math.max(...all.map((p) => p[1])),
   };
   let fuelBounds: Layout["fuelBounds"];
+  const campusRoom=ALL_CLASSROOMS.find(r=>r.walkPosition && r.floor===fire.floor && Math.abs(fire.position[0]-r.position[0])<r.size[0]/2 && Math.abs(fire.position[2]-r.position[2])<r.size[2]/2);
+  if(campusRoom)fuelBounds=[campusRoom.position[0]-campusRoom.size[0]/2,campusRoom.position[0]+campusRoom.size[0]/2,campusRoom.position[2]-campusRoom.size[2]/2,campusRoom.position[2]+campusRoom.size[2]/2];
   if (fire.floor > 0) {
     const [x, , z] = fire.position;
     const room = CLASSROOMS.find((room) => room.floor === fire.floor && (room.side === "pink"
@@ -88,7 +92,7 @@ function layoutFor(fire: FireSource): Layout {
     else if (x > -52 && x < -4 && z >= .3 && z < 3.48) fuelBounds = [-52, -4, .3, 3.48];
     else if (z > 4 && z < 52 && x > -3.48 && x <= .04) fuelBounds = [-3.48, .04, 4, 52];
   }
-  const floors = [...new Set([fire.floor, ...path.map((p) => fireFloorAt(p[1]))])];
+  const floors = [...new Set([fire.floor, ...path.map((p) => fireFloorAt(p[1],p))])];
   const result = { signature, baseSignature, path: fire.spreadPath, bounds, trail, length, floors, fuelBounds };
   layouts.set(fire, result);
   return result;
@@ -134,7 +138,7 @@ export function flameCellsAt(fire: FireSource, time: number): FlameCell[] {
       const sample = layout.trail[i];
       const age = elapsed - duration * sample.distance / Math.max(.001, layout.length);
       if (age <= 0) continue;
-      add(sample.position, .30 * (1 - Math.exp(-age * 1.8)), i + 509, fire.floor === 0 ? 0 : fireFloorAt(sample.position[1]));
+      add(sample.position, .30 * (1 - Math.exp(-age * 1.8)), i + 509, fire.floor === 0 ? 0 : fireFloorAt(sample.position[1],sample.position));
     }
   }
   const radius = fireRadiusAt(fire, time);
@@ -171,7 +175,7 @@ export function cellContactRadius(cell: FlameCell, feetY: number): number {
 
 export function flameClearanceAt(point: Vec3, fires: FireSource[], time: number, bodyRadius = .18): number {
   let clearance = Infinity;
-  const floor = fireFloorAt(point[1]);
+  const floor = fireFloorAt(point[1],point);
   for (const fire of fires) {
     if (!fireHasStarted(fire, time) || !fireMayAffectPoint(fire, point, bodyRadius)) continue;
     for (const cell of flameCellsAt(fire, time)) {
@@ -212,7 +216,7 @@ export function bodySegmentTouchesFlame(from: Vec3, to: Vec3, fires: FireSource[
       }
       const t = Math.max(lo, Math.min(hi, horizontalSq < 1e-10 ? lo : ((cell.position[0] - from[0]) * dx + (cell.position[2] - from[2]) * dz) / horizontalSq));
       const y = from[1] + dy * t;
-      if (cell.floor > 0 && fireFloorAt(y) !== cell.floor) continue;
+      if (cell.floor > 0 && fireFloorAt(y,[from[0]+dx*t,y,from[2]+dz*t]) !== cell.floor) continue;
       const r = cellContactRadius(cell, y);
       if (r >= 0 && Math.hypot(from[0] + dx * t - cell.position[0], from[2] + dz * t - cell.position[2]) <= r + padding) return true;
     }

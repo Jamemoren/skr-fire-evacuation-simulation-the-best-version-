@@ -15,25 +15,37 @@ import { uploadInstanceRange } from "../rendering/instanceBuffers";
 import { attachStudentMotion, createStudentMaterial, STUDENT_INSTANCE_CAPACITY, studentTransitionBuffers, uploadStudentMotion } from "./studentMaterial";
 import { advanceStudentAnimationClock, sampleStudentAnimation, type StudentAnimationTrack } from "./studentAnimation";
 import { activeFrameDelta } from "../rendering/frameClock";
+import { useBuilding3Store } from "../building1/building3Store";
 
 function DynamicRoutes() {
   const showRoutes = useEvacuationStore((state) => state.showRoutes);
   const token = useEvacuationStore((state) => state.snapshotToken);
   const routes = useMemo(() => showRoutes ? evacuationRuntime.getRoutePolylines() : [], [showRoutes, token]);
+  const group = useRef<THREE.Group>(null);
+  const still = useMemo(() => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches, []);
+  // Directional flow: dashes travel from the classroom toward the assembly field.
+  useFrame((_, delta) => {
+    if (still || !group.current) return;
+    const step = Math.min(delta, 0.1) * 2.2;
+    group.current.traverse((object) => {
+      const material = (object as THREE.Mesh).material as (THREE.Material & { dashOffset?: number }) | undefined;
+      if (material && typeof material.dashOffset === "number") material.dashOffset -= step;
+    });
+  });
   if (!showRoutes) return null;
   return (
-    <group name="SIM_OPTIMAL_ROUTES">
+    <group ref={group} name="SIM_OPTIMAL_ROUTES">
       {routes.map((route, index) => (
         <Line
           key={route.id}
           points={route.points.map((point) => [point[0], point[1] + 0.16, point[2]])}
-          color={route.risk > 0.2 ? "#ef7b54" : index < 5 ? "#0f84d8" : "#46a982"}
-          lineWidth={Math.max(1.0, Math.min(3.6, 1.0 + route.people / 220))}
+          color={route.risk > 0.2 ? "#d9731c" : index < 5 ? "#245da8" : "#138a5e"}
+          lineWidth={Math.max(1.2, Math.min(3.8, 1.2 + route.people / 220))}
           transparent
-          opacity={index < 8 ? 0.72 : 0.30}
-          dashed={index >= 8}
-          dashSize={1.0}
-          gapSize={0.6}
+          opacity={index < 8 ? 0.82 : 0.36}
+          dashed
+          dashSize={index < 8 ? 2.4 : 1.0}
+          gapSize={index < 8 ? 0.8 : 0.6}
         />
       ))}
     </group>
@@ -74,12 +86,11 @@ function AgentInstances() {
   const skipResumedFrame = useRef(false);
   const lastSync = useRef(0);
   const lastVisualUpdate = useRef(0);
-  const simulationAccumulator = useRef(0);
   const previousCameraProjection = useMemo(() => new THREE.Matrix4(), []);
   const previousModelWorld = useMemo(() => new THREE.Matrix4(), []);
   const previousVisual = useRef<{
     agents: ReturnType<typeof evacuationRuntime.getAgentRenderViews>; time: number; status: string;
-    mode: string; floor: number; exploded: boolean; tier: string; show: boolean;
+    mode: string; floor: number; campusFloor: number; exploded: boolean; tier: string; show: boolean;
     male: THREE.InstancedMesh; female: THREE.InstancedMesh;
   } | null>(null);
   const visualWork = useRef({ updates: 0, skipped: 0, uploadedBytes: 0, reportedAt: -Infinity });
@@ -94,7 +105,6 @@ function AgentInstances() {
   useEffect(() => {
     const onVisibilityChange = () => {
       skipResumedFrame.current = true;
-      simulationAccumulator.current = 0;
       lastSync.current = -Infinity;
       lastVisualUpdate.current = -Infinity;
       previousVisual.current = null;
@@ -115,30 +125,21 @@ function AgentInstances() {
       seenRevision.current = evacuationRuntime.revision;
       animations.current.clear();
       animationClock.current = 0;
-      simulationAccumulator.current = 0;
       lastSync.current = -Infinity;
       lastVisualUpdate.current = -Infinity;
       previousVisual.current = null;
     }
     const store = useEvacuationStore.getState();
     if (store.status === "running") {
-      simulationAccumulator.current += Math.min(dt, 0.1) * store.speedFactor;
-      const updateInterval = store.speedFactor <= 2 ? 1 / 30 : store.speedFactor <= 10 ? 1 / 24 : 1 / 20;
-      if (simulationAccumulator.current >= updateInterval) {
-        // Fast-forward is CPU-budgeted: use a few bounded physical substeps instead of eight
-        // expensive full-population passes every rendered frame. Strict Survival Guard and the
-        // movement guard still run on every accepted substep.
-        const simulatedSlice = Math.min(store.speedFactor >= 25 ? 0.36 : 0.30, simulationAccumulator.current);
-        const maxSubstep = store.speedFactor >= 25 ? 0.09 : store.speedFactor >= 10 ? 0.085 : 0.09;
-        const maxSubsteps = store.speedFactor >= 25 ? 4 : store.speedFactor >= 10 ? 4 : 3;
-        const substeps = Math.max(1, Math.min(maxSubsteps, Math.ceil(simulatedSlice / maxSubstep)));
-        const substepDt = simulatedSlice / substeps;
-        for (let step = 0; step < substeps; step += 1) evacuationRuntime.step(substepDt);
-        simulationAccumulator.current = Math.max(0, simulationAccumulator.current - simulatedSlice);
-        simulationAccumulator.current = Math.min(simulationAccumulator.current, store.speedFactor >= 25 ? 0.24 : 0.32);
-      }
-    } else {
-      simulationAccumulator.current = 0;
+      // Fixed-step simulation (FIXED_SIMULATION_DT). The frame rate only decides how many steps
+      // run per frame, never their size; a slow device runs behind real time instead of taking
+      // bigger, different steps, so the outcome does not depend on FPS.
+      // Faster playback may spend more of each frame on physics (the picture gets choppier but the
+      // simulation really runs faster); 1× stays light so the view remains smooth.
+      const speed = store.speedFactor;
+      const maxSteps = speed <= 1 ? 2 : speed <= 2 ? 3 : speed <= 5 ? 5 : speed <= 10 ? 8 : 12;
+      const budgetMs = speed <= 1 ? 12 : speed <= 2 ? 16 : speed <= 5 ? 24 : 32;
+      evacuationRuntime.advance(Math.min(dt, 0.1) * store.speedFactor, maxSteps, budgetMs);
     }
     const syncInterval = store.speedFactor >= 25 ? 0.55 : store.speedFactor >= 10 ? 0.42 : 0.3;
     if ((store.status === "running" || (evacuationRuntime.completed && store.status !== "completed"))
@@ -162,6 +163,8 @@ function AgentInstances() {
     if (!maleRef.current || !femaleRef.current || !studentRoot.current) return;
     const agents = store.status === "idle" ? waitingStudents : evacuationRuntime.getAgentRenderViews();
     const building = useBuilding1Store.getState();
+    const campusView = useBuilding3Store.getState();
+    const campusFloor = campusView.cutawayFloor + campusView.buildingNumber * 10;
     const t = evacuationRuntime.time;
     state.camera.updateMatrixWorld();
     state.camera.matrixWorldInverse.copy(state.camera.matrixWorld).invert();
@@ -171,6 +174,7 @@ function AgentInstances() {
     const unchanged = previousVisualState
       && previousVisualState.agents === agents && previousVisualState.time === t && previousVisualState.status === store.status
       && previousVisualState.mode === building.viewMode && previousVisualState.floor === building.selectedFloor
+      && previousVisualState.campusFloor === campusFloor
       && previousVisualState.exploded === building.explodeFloors && previousVisualState.tier === tier
       && previousVisualState.show === showAgents && previousVisualState.male === maleRef.current && previousVisualState.female === femaleRef.current
       && previousCameraProjection.equals(cameraProjection) && previousModelWorld.equals(studentRoot.current.matrixWorld);
@@ -185,7 +189,7 @@ function AgentInstances() {
       publishWork();
       return;
     }
-    previousVisual.current = { agents, time: t, status: store.status, mode: building.viewMode, floor: building.selectedFloor,
+    previousVisual.current = { agents, time: t, status: store.status, mode: building.viewMode, floor: building.selectedFloor, campusFloor,
       exploded: building.explodeFloors, tier, show: showAgents, male: maleRef.current, female: femaleRef.current };
     previousCameraProjection.copy(cameraProjection);
     previousModelWorld.copy(studentRoot.current.matrixWorld);
@@ -210,7 +214,10 @@ function AgentInstances() {
     let femaleCount = 0;
     let eligible = 0;
     agents.forEach((agent) => {
-      const floorOffset = yOffsetForRender(agent.floor, building);
+      const campusAgent = /^b[34]-/.test(agent.roomId) && agent.phase !== "outdoor" && agent.phase !== "assembly";
+      const campusHidden = building.viewMode === "interior" || building.viewMode === "single-floor" || building.viewMode === "structure";
+      const ownCut = agent.roomId.startsWith("b"+campusView.buildingNumber+"-") ? campusView.cutawayFloor : 0;
+      const floorOffset = campusAgent ? (campusHidden || (ownCut > 0 && agent.floor > ownCut) ? null : 0) : yOffsetForRender(agent.floor, building);
       if (floorOffset === null) return;
       eligible += 1;
       studentWorldBounds(visibilitySphere, agent.position, floorOffset, studentRoot.current!.matrixWorld);
@@ -273,6 +280,41 @@ function AgentInstances() {
   );
 }
 
+
+/** Ring + beacon above the person selected in the decision inspector. Reads runtime state only. */
+function InspectedAgentMarker() {
+  const inspected = useEvacuationStore((state) => state.inspectedAgentId);
+  const group = useRef<THREE.Group>(null);
+  const still = useMemo(() => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches, []);
+  useFrame((state) => {
+    const target = group.current;
+    if (!target) return;
+    const agent = inspected != null ? evacuationRuntime.agents[inspected] : undefined;
+    if (!agent || agent.id !== inspected) { target.visible = false; return; }
+    const view = useBuilding1Store.getState();
+    const campusAgent = /^b[34]-/.test(agent.roomId) && agent.phase !== "outdoor" && agent.phase !== "assembly";
+    const offset = campusAgent ? 0 : yOffsetForRender(agent.floor, view);
+    if (offset === null) { target.visible = false; return; }
+    target.visible = true;
+    target.position.set(agent.position[0], agent.position[1] + offset + 0.04, agent.position[2]);
+    const pulse = still ? 1 : 1 + Math.sin(state.clock.elapsedTime * 3.2) * 0.08;
+    target.scale.set(pulse, 1, pulse);
+  });
+  if (inspected == null) return null;
+  return (
+    <group ref={group} name="SIM_INSPECTED_AGENT" renderOrder={40}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.42, 0.56, 40]} />
+        <meshBasicMaterial color="#40b8d5" transparent opacity={0.95} depthTest={false} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh position={[0, 2.35, 0]} rotation={[Math.PI, 0, 0]}>
+        <coneGeometry args={[0.22, 0.5, 16]} />
+        <meshBasicMaterial color="#245da8" depthTest={false} />
+      </mesh>
+    </group>
+  );
+}
+
 export function SimulationScene() {
   const workMode = useEvacuationStore((state) => state.workMode);
   const status = useEvacuationStore((state) => state.status);
@@ -281,6 +323,7 @@ export function SimulationScene() {
     <group name="EVACUATION_SIMULATION_SCENE">
       <DynamicRoutes />
       <AgentInstances />
+      <InspectedAgentMarker />
       <FireEffects />
     </group>
   );

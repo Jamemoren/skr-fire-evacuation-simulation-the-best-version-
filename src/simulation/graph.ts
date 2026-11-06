@@ -44,6 +44,9 @@ import { PEDESTRIAN_RADIUS, pointInsideWalkableCorridor } from "./walkable";
 import { fireRadiusAt, smokeRadiusAt, fireHasStarted, fireCanAffectFloor, flameCellsAt, cellContactRadius, fireMayAffectPoint, bodySegmentTouchesFlame } from "./fireField";
 export { fireRadiusAt, smokeRadiusAt } from "./fireField";
 import { edgeAllowsDetour, planFireDetour } from "./localNavigation";
+import { ALL_CLASSROOMS, campusFloorAt, campusBuildingAt } from "./campusData";
+import { appendCampusGraph } from "./campusGraph";
+import { SITE_LAYOUT, fieldPoint, SHRINE_CENTER, SHRINE_CLEARANCE_RADIUS } from "../building1/siteLayout";
 
 const EPS = 1e-6;
 export const DEFAULT_AMBIENT_TEMPERATURE_C = 29;
@@ -71,13 +74,17 @@ export function walkY(floor: number): number {
   return Math.max(0.2, floorBase(Math.max(1, floor)) + WALK_Y_OFFSET);
 }
 
-export function floorFromY(y: number): number {
+export function floorFromY(y: number, position?: Vec3): number {
+  const campus=position && campusFloorAt(position);if(campus)return campus;
   if (y < FLOOR_HEIGHT * 0.55) return 1;
   return Math.max(1, Math.min(FLOOR_COUNT, Math.floor((y + 0.15) / FLOOR_HEIGHT) + 1));
 }
 
 export function classifyWing(position: Vec3): AgentWing {
+  const campus=campusBuildingAt(position);if(campus)return campus.id;
   const [x, y, z] = position;
+  if(Math.hypot(x-SHRINE_CENTER[0],z-SHRINE_CENTER[2])<=SHRINE_CLEARANCE_RADIUS)return "outdoor";
+  if (y < 1.5 && (x < -70 || z < -18)) return "outdoor";
   if (z > 66 || y < 0.05) return z > 66 ? "outdoor" : "ground";
   if (x < -5 && z < 8) return "pink";
   if (z > 5 && x < 12) return "blue";
@@ -105,7 +112,7 @@ function polylineDistance(points: Vec3[]): number {
 /** Smoke and radiant heat are avoidance cues. Only visible flame cells set blocked. */
 export function pointRisk(point: Vec3, fires: FireSource[], time: number, flamePadding = 0) {
   let fire = 0, smoke = 0, heat = 0, blocked = false;
-  const floor = floorFromY(point[1]);
+  const floor = floorFromY(point[1], point);
   for (const source of fires) {
     if (!fireHasStarted(source, time) || !fireMayAffectPoint(source, point, flamePadding)) continue;
     const sameFloor = source.floor === 0 || source.floor === floor;
@@ -197,11 +204,14 @@ function roomDoorPosition(room: RoomModuleDefinition): Vec3 {
     : [0.06, y, room.position[2] - 2.25];
 }
 
-function roomCorridorPosition(room: RoomModuleDefinition): Vec3 {
+function roomCorridorPosition(room: RoomModuleDefinition, legacyCenters = false): Vec3 {
   const y = walkY(room.floor);
+  const door = roomDoorPosition(room);
+  // The decision point must lie directly outside the opening. Otherwise a clear
+  // door is artificially connected only to a burning point 2.25 m down the hall.
   return room.side === "pink"
-    ? [room.position[0], y, PINK_CORRIDOR_Z]
-    : [BLUE_CORRIDOR_X, y, room.position[2]];
+    ? [legacyCenters ? room.position[0] : door[0], y, PINK_CORRIDOR_Z]
+    : [BLUE_CORRIDOR_X, y, legacyCenters ? room.position[2] : door[2]];
 }
 
 /**
@@ -280,7 +290,7 @@ function denseSamples(points: Vec3[], spacing = 1.4): Vec3[] {
 function computeEdgeRisk(edge: SimEdge, nodeMap: Map<string, SimNode>, fires: FireSource[], time: number) {
   const physicalPath = normalizedEdgePoints(edge, nodeMap);
   let points = denseSamples(physicalPath);
-  if (!points.length) return { fire: 0, smoke: 0, heat: 0, modeledTemperatureC: DEFAULT_AMBIENT_TEMPERATURE_C, blocked: true, detourAvailable: false };
+  if (!points.length) return { fire: 0, smoke: 0, heat: 0, modeledTemperatureC: DEFAULT_AMBIENT_TEMPERATURE_C, blocked: true, detourAvailable: false, navigationDistance: edge.distance };
   // One edge occupies at most two adjacent floors. Filter once here instead of making every
   // dense sample scan all burning objects across all nine floors.
   const relevantFires = fires.filter((fire) => (
@@ -291,6 +301,7 @@ function computeEdgeRisk(edge: SimEdge, nodeMap: Map<string, SimNode>, fires: Fi
   const clearance = PEDESTRIAN_RADIUS + 0.08;
   let blocked = physicalPath.slice(1).some((point, index) => segmentTouchesFlame(physicalPath[index], point, relevantFires, time, clearance));
   let detourAvailable = false;
+  let navigationDistance = edge.distance;
   if (blocked && edgeAllowsDetour(edge)) {
     const detour = planFireDetour(physicalPath, edge, {
       allowStartLanes: nodeMap.get(edge.from)?.type === "corridor" || nodeMap.get(edge.from)?.type === "junction" || nodeMap.get(edge.from)?.type === "gate",
@@ -302,6 +313,7 @@ function computeEdgeRisk(edge: SimEdge, nodeMap: Map<string, SimNode>, fires: Fi
       points = denseSamples(detour, 0.4);
       blocked = false;
       detourAvailable = true;
+      navigationDistance = Math.max(edge.distance, detour.slice(1).reduce((sum, point, index) => sum + distance3(detour[index], point), 0));
     }
   }
   const samples = points.map((point) => pointRisk(point, relevantFires, time));
@@ -313,6 +325,7 @@ function computeEdgeRisk(edge: SimEdge, nodeMap: Map<string, SimNode>, fires: Fi
     modeledTemperatureC: modeledTemperatureFromHeat(heat),
     blocked,
     detourAvailable,
+    navigationDistance,
   };
 }
 
@@ -356,7 +369,7 @@ function addEdge(edges: SimEdge[], nodeMap: Map<string, SimNode>, edge: Omit<Sim
   edges.push(provisional);
 }
 
-export function createEvacuationGraph(): SimGraph {
+export function createEvacuationGraph(includeCampus = true, layout = SITE_LAYOUT, legacyCorridorCenters = false): SimGraph {
   const nodes: SimNode[] = [];
   const pendingEdges: Array<Omit<SimEdge, "distance" | "floorFrom" | "floorTo">> = [];
 
@@ -390,7 +403,7 @@ export function createEvacuationGraph(): SimGraph {
         id: corridorId("pink", floor, bay),
         name: `โถงปีกซ้าย ชั้น ${floor} ช่วง ${bay}`,
         type: "corridor",
-        position: roomCorridorPosition(room),
+        position: roomCorridorPosition(room, legacyCorridorCenters),
         floor,
         capacity: 12,
         wing: "pink",
@@ -403,7 +416,7 @@ export function createEvacuationGraph(): SimGraph {
         id: corridorId("blue", floor, bay),
         name: `โถงปีกขวา ชั้น ${floor} ช่วง ${bay}`,
         type: "corridor",
-        position: roomCorridorPosition(room),
+        position: roomCorridorPosition(room, legacyCorridorCenters),
         floor,
         capacity: 12,
         wing: "blue",
@@ -475,7 +488,7 @@ export function createEvacuationGraph(): SimGraph {
       id: `sim-zone-${zone.toLowerCase()}`,
       name: `จุดรวมพล Zone ${zone}`,
       type: "assembly",
-      position: [FIELD_CENTER[0] + dx, 0.22, FIELD_CENTER[2] + dz],
+      position: fieldPoint(dx, 0.22, dz, layout),
       floor: 0,
       capacity: ASSEMBLY_ZONE_CAPACITY,
       wing: "assembly",
@@ -710,7 +723,7 @@ export function createEvacuationGraph(): SimGraph {
 
   const edges: SimEdge[] = [];
   pendingEdges.forEach((edge) => addEdge(edges, nodeMap, edge));
-  return { nodes, edges };
+  return includeCampus ? appendCampusGraph({ nodes, edges }, layout) : { nodes, edges };
 }
 
 interface Arc { edge: SimEdge; from: SimNode; to: SimNode }
@@ -757,18 +770,69 @@ function arcCost(
   const thermalBand = Math.max(0, (modeledTemperatureC - heatAvoidThresholdC) / Math.max(1, hardBlockTemperatureC - heatAvoidThresholdC));
   const thermalPenalty = thermalBand * thermalBand * (config.thermalWeight ?? 2400);
   const speed = Math.max(0.25, config.walkingSpeed * arc.edge.speedMultiplier);
-  const travel = arc.edge.distance / speed;
+  const travel = risk.navigationDistance / speed;
   const load = reserved.get(arc.edge.id) ?? 0;
   const queueDelay = load / Math.max(0.1, arc.edge.capacityPerSecond);
   const density = load / Math.max(1, arc.edge.width * Math.max(4, arc.edge.distance));
   if (config.preset === "fastest") return travel + queueDelay * 0.95 + density * 2.5 + risk.fire * 1400 + risk.heat * 720 + risk.smoke * 180 + thermalPenalty * 0.35;
   if (config.preset === "safest") return travel * 0.35 + queueDelay * 0.55 + risk.fire * 7000 + risk.heat * 3800 + risk.smoke * 2400 + density * 16 + thermalPenalty * 1.75;
-  return arc.edge.distance * config.distanceWeight + (travel + queueDelay) * config.timeWeight + density * config.congestionWeight + risk.fire * config.fireWeight + risk.heat * config.fireWeight * 0.58 + risk.smoke * config.smokeWeight + thermalPenalty;
+  return risk.navigationDistance * config.distanceWeight + (travel + queueDelay) * config.timeWeight + density * config.congestionWeight + risk.fire * config.fireWeight + risk.heat * config.fireWeight * 0.58 + risk.smoke * config.smokeWeight + thermalPenalty;
 }
 
 function heuristic(node: SimNode, goals: SimNode[], preset: RoutingPreset) {
   const d = Math.min(...goals.map((goal) => distance3(node.position, goal.position)));
   return preset === "safest" ? d * 0.08 : d * 0.34;
+}
+
+interface GraphIndex { nodeMap: Map<string, SimNode>; edgeMap: Map<string, SimEdge>; adj: Map<string, Arc[]> }
+const graphIndexCache = new WeakMap<SimGraph, GraphIndex>();
+
+/** Graph objects are immutable after construction, so their lookup tables are built once. */
+function graphIndex(graph: SimGraph): GraphIndex {
+  const cached = graphIndexCache.get(graph);
+  if (cached && cached.nodeMap.size === graph.nodes.length && cached.edgeMap.size === graph.edges.length) return cached;
+  const nodeMap = new Map(graph.nodes.map((n) => [n.id, n]));
+  const edgeMap = new Map(graph.edges.map((e) => [e.id, e]));
+  const index = { nodeMap, edgeMap, adj: adjacency(graph, nodeMap) };
+  graphIndexCache.set(graph, index);
+  return index;
+}
+
+/** Binary min-heap ordered by (f, insertion sequence) — identical order to a stable sort. */
+class OpenSet {
+  private ids: string[] = [];
+  private f: number[] = [];
+  private seq: number[] = [];
+  private counter = 0;
+  get size() { return this.ids.length; }
+  private less(a: number, b: number) { return this.f[a] < this.f[b] || (this.f[a] === this.f[b] && this.seq[a] < this.seq[b]); }
+  private swap(a: number, b: number) {
+    [this.ids[a], this.ids[b]] = [this.ids[b], this.ids[a]];
+    [this.f[a], this.f[b]] = [this.f[b], this.f[a]];
+    [this.seq[a], this.seq[b]] = [this.seq[b], this.seq[a]];
+  }
+  push(id: string, f: number) {
+    this.ids.push(id); this.f.push(f); this.seq.push(this.counter++);
+    let i = this.ids.length - 1;
+    while (i > 0) { const parent = (i - 1) >> 1; if (!this.less(i, parent)) break; this.swap(i, parent); i = parent; }
+  }
+  pop(): string | undefined {
+    if (!this.ids.length) return undefined;
+    const top = this.ids[0];
+    const last = this.ids.length - 1;
+    this.swap(0, last);
+    this.ids.pop(); this.f.pop(); this.seq.pop();
+    let i = 0;
+    for (;;) {
+      const l = i * 2 + 1, r = l + 1;
+      let m = i;
+      if (l < this.ids.length && this.less(l, m)) m = l;
+      if (r < this.ids.length && this.less(r, m)) m = r;
+      if (m === i) break;
+      this.swap(i, m); i = m;
+    }
+    return top;
+  }
 }
 
 export function findPath(
@@ -782,30 +846,30 @@ export function findPath(
   excluded = new Set<string>(),
   heuristicWeight = 1,
 ): RoutePath | null {
-  const nodeMap = new Map(graph.nodes.map((n) => [n.id, n]));
+  const { nodeMap, edgeMap, adj } = graphIndex(graph);
   const goals = goalIds.map((id) => nodeMap.get(id)).filter((v): v is SimNode => Boolean(v));
   if (!nodeMap.has(startId) || goals.length === 0) return null;
-  const adj = adjacency(graph, nodeMap);
-  const open: Array<{ id: string; f: number }> = [{ id: startId, f: 0 }];
+  const goalSet = new Set(goalIds);
+  const open = new OpenSet();
+  open.push(startId, 0);
   const g = new Map<string, number>([[startId, 0]]);
   const prev = new Map<string, { nodeId: string; edgeId: string }>();
   const closed = new Set<string>();
   let reached: string | null = null;
 
-  while (open.length) {
-    open.sort((a, b) => a.f - b.f);
-    const current = open.shift()!;
-    if (closed.has(current.id)) continue;
-    if (goalIds.includes(current.id)) { reached = current.id; break; }
-    closed.add(current.id);
-    for (const arc of adj.get(current.id) ?? []) {
+  while (open.size) {
+    const currentId = open.pop()!;
+    if (closed.has(currentId)) continue;
+    if (goalSet.has(currentId)) { reached = currentId; break; }
+    closed.add(currentId);
+    for (const arc of adj.get(currentId) ?? []) {
       const cost = arcCost(arc, nodeMap, config, fires, time, reserved, excluded);
       if (!Number.isFinite(cost)) continue;
-      const nextG = (g.get(current.id) ?? Infinity) + cost;
+      const nextG = (g.get(currentId) ?? Infinity) + cost;
       if (nextG < (g.get(arc.to.id) ?? Infinity)) {
         g.set(arc.to.id, nextG);
-        prev.set(arc.to.id, { nodeId: current.id, edgeId: arc.edge.id });
-        open.push({ id: arc.to.id, f: nextG + heuristic(arc.to, goals, config.preset) * heuristicWeight });
+        prev.set(arc.to.id, { nodeId: currentId, edgeId: arc.edge.id });
+        open.push(arc.to.id, nextG + heuristic(arc.to, goals, config.preset) * heuristicWeight);
       }
     }
   }
@@ -822,7 +886,6 @@ export function findPath(
     cursor = p.nodeId;
   }
 
-  const edgeMap = new Map(graph.edges.map((e) => [e.id, e]));
   let distance = 0;
   let estimatedTime = 0;
   let risk = 0;
@@ -831,12 +894,12 @@ export function findPath(
   edgeIds.forEach((id) => {
     const edge = edgeMap.get(id);
     if (!edge) return;
-    distance += edge.distance;
-    estimatedTime += edge.distance / Math.max(0.25, config.walkingSpeed * edge.speedMultiplier);
+    const er = edgeRisk(edge, nodeMap, fires, time);
+    distance += er.navigationDistance;
+    estimatedTime += er.navigationDistance / Math.max(0.25, config.walkingSpeed * edge.speedMultiplier);
     bottleneckCapacity = Math.min(bottleneckCapacity, edge.capacityPerSecond);
     const load = reserved.get(id) ?? 0;
     congestion += load / Math.max(1, edge.width * Math.max(4, edge.distance));
-    const er = edgeRisk(edge, nodeMap, fires, time);
     risk += er.fire + er.heat * 0.72 + er.smoke;
   });
 
@@ -877,9 +940,10 @@ export function kShortestPaths(
   time: number,
   reserved: Map<string, number>,
   k = 4,
+  baseExcluded: ReadonlySet<string> = new Set<string>(),
 ): RoutePath[] {
   const results: RoutePath[] = [];
-  const queue: Set<string>[] = [new Set()];
+  const queue: Set<string>[] = [new Set(baseExcluded)];
   const seen = new Set<string>();
   while (queue.length && results.length < k) {
     const excluded = queue.shift()!;
@@ -952,9 +1016,9 @@ export function routeIsPhysicallyValid(graph: SimGraph, path: RoutePath,
 }
 
 export function activeRoomPopulation(populationTarget: number): Array<{ room: RoomModuleDefinition; count: number }> {
-  const target = Math.max(0, Math.min(populationTarget, CLASSROOMS.length * CLASSROOM_CAPACITY));
-  return CLASSROOMS
-    .map((room, index) => ({ room, count: balancedOccupancyAt(index, target, CLASSROOMS.length) }))
+  const target = Math.max(0, Math.min(populationTarget, ALL_CLASSROOMS.length * CLASSROOM_CAPACITY));
+  return ALL_CLASSROOMS
+    .map((room, index) => ({ room, count: balancedOccupancyAt(index, target, ALL_CLASSROOMS.length) }))
     .filter(({ count }) => count > 0);
 }
 
@@ -964,6 +1028,7 @@ function marginalSystemArrivalScore(
   zoneLoads: Map<string, number>,
   edgeMap: Map<string, SimEdge>,
   config: SimulationConfig,
+  goalCapacity = ASSEMBLY_ZONE_CAPACITY,
 ): number {
   let freeFlow = 0;
   let queueDelay = 0;
@@ -982,7 +1047,7 @@ function marginalSystemArrivalScore(
     queueDelay += serviceTime * 0.10;
     crowdPenalty += loadAfter / Math.max(1, edge.width * Math.max(3, edge.distance));
   }
-  const zoneFill = (zoneLoads.get(path.goalId) ?? 0) / ASSEMBLY_ZONE_CAPACITY;
+  const zoneFill = (zoneLoads.get(path.goalId) ?? 0) / goalCapacity;
   const hazardPenalty = config.preset === "safest" ? path.risk * 3200 : path.risk * 900;
   const congestionFactor = config.preset === "fastest" ? 0.72 : config.preset === "safest" ? 0.48 : 1;
   return freeFlow + (bottleneckDelay + queueDelay) * congestionFactor + crowdPenalty * 5.5 + zoneFill * 7 + hazardPenalty;
@@ -1006,6 +1071,7 @@ export function allocatePopulation(
   const bundles: RouteBundle[] = [];
   const edgeMap = new Map(graph.edges.map((edge) => [edge.id, edge]));
   const goals = graph.nodes.filter((n) => n.type === "assembly").map((n) => n.id);
+  const goalCapacities=new Map(graph.nodes.filter(n=>n.type==="assembly").map(n=>[n.id,n.capacity]));
   const rooms = activeRoomPopulation(config.populationTarget).sort((a, b) => b.room.floor - a.room.floor);
 
   for (const { room, count } of rooms) {
@@ -1018,12 +1084,12 @@ export function allocatePopulation(
 
     const roomAssignments = new Map<string, { path: RoutePath; amount: number }>();
     for (let person = 0; person < count; person += 1) {
-      const viable = candidates.filter((path) => (zoneLoads.get(path.goalId) ?? 0) < ASSEMBLY_ZONE_CAPACITY);
+      const viable = candidates.filter((path) => (zoneLoads.get(path.goalId) ?? 0) < (goalCapacities.get(path.goalId) ?? ASSEMBLY_ZONE_CAPACITY));
       if (!viable.length) break;
       let best = viable[0];
       let bestScore = Infinity;
       for (const path of viable) {
-        const score = marginalSystemArrivalScore(path, reserved, zoneLoads, edgeMap, config);
+        const score = marginalSystemArrivalScore(path, reserved, zoneLoads, edgeMap, config, goalCapacities.get(path.goalId));
         if (score < bestScore) {
           bestScore = score;
           best = path;
@@ -1054,7 +1120,7 @@ export function edgeBlockedByFire(graph: SimGraph, edgeId: string, fires: FireSo
 export function edgeRiskSnapshot(graph: SimGraph, edgeId: string, fires: FireSource[], time: number,
   nodes?: Map<string, SimNode>, edges?: Map<string, SimEdge>) {
   const edge = edges?.get(edgeId) ?? graph.edges.find((e) => e.id === edgeId);
-  if (!edge) return { fire: 1, smoke: 1, heat: 1, modeledTemperatureC: modeledTemperatureFromHeat(1), blocked: true, detourAvailable: false };
+  if (!edge) return { fire: 1, smoke: 1, heat: 1, modeledTemperatureC: modeledTemperatureFromHeat(1), blocked: true, detourAvailable: false, navigationDistance: Infinity };
   const nodeMap = nodes?.size ? nodes : new Map(graph.nodes.map((n) => [n.id, n]));
   return edgeRisk(edge, nodeMap, fires, time);
 }

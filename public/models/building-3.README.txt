@@ -1,0 +1,38 @@
+BUILDING 3 - reference reconstruction
+
+Identity: user's reference marker 5 = Building 3. Four storeys including open ground floor.
+Sources: user-supplied อาคาร3-4.pdf, sheets A-09 to A-24, facade screenshots and site sketch.
+
+Plan-derived model:
+- 21 structural grid axes at 4 m = 80 m column-to-column length.
+- 10.5 m principal structural depth, including the 2.5 m front gallery.
+- Ground floor pilotis remains open except the two stair systems and structural columns.
+- Upper floor walking levels: 4.2, 7.7 and 11.2 m above the model datum.
+- Floor 2: six central classrooms, two end classrooms and end service/toilet blocks.
+- Floors 3/4: six central classrooms plus two wider end special-classroom zones.
+- Two opposed-flight stairs at local X = -26 / +26 m, with slab openings and handrails.
+- Pink/white facade, balcony railings, door/window assemblies and cream hipped roof.
+- Desks, chairs, boards and small fittings are illustrative details, not surveyed inventories.
+
+File: building-3.glb. Separate floor and roof groups support cutaway inspection.
+Rebuild using Blender: blender -b --factory-startup --python scripts/build-building3.py
+The source PDF and original Blender file are not modified.
+
+SITE + BRIDGE
+Building 3 is placed to the right of Building 4, behind Building 1, following the user's sketch.
+The previous Blender building is retained as Building 4 and moved to the left.
+The bridge is an illustrative covered L-shaped connection, with its deck top at 11.2 m
+(floor 4), handrails, canopy, landing and a support column. The B4 model's height scale
+is adjusted to align its fourth-floor slab. Exact site separation, bridge geometry and
+connections require an actual measured site plan; the supplied sketch has no dimensions.
+The bridge landing overlaps the measured B4 mesh gallery at approximately Y=11.213m.
+building-4-linked.glb is a separate derived asset with a doorway clipped out of two
+facade meshes for clear access. campus-extension.glb remains unchanged as the source.
+Rebuild the doorway asset using scripts/prepare-building4-link.py in Blender.
+Run npm run qa:building3 to check open ground bays, stairwell openings, floor heights,
+actual B4 gallery contact and the clear bridge entrance.
+
+The additional campus road illustrates the user's Assembly Point 2 context.
+Building 1, the football field and the existing evacuation graph are retained.
+Buildings 3/4 and the bridge are visual/inspection models, not yet part of the evacuation
+runtime or the first-person walk controller. No new capacities or evacuation results are invented.

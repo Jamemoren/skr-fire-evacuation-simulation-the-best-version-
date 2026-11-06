@@ -41,7 +41,28 @@ export interface Calibration {
   scale: number;
 }
 
+export type TransformMode = "translate" | "rotate" | "scale";
+export interface ModelObjectEdit {
+  name?: string;
+  position?: Vec3;
+  rotation?: Vec3;
+  scale?: Vec3;
+  color?: string;
+  visible?: boolean;
+  locked?: boolean;
+  deleted?: boolean;
+  duplicateOf?: string;
+}
+export interface ModelObjectInfo {
+  id: string;
+  name: string;
+  position: Vec3;
+  rotation: Vec3;
+  scale: Vec3;
+  color: string;
+}
 export interface SurfaceHit {
+  objectId?: string;
   /** Position in model-local coordinates. */
   position: Vec3;
   /** Position after Calibration in scene/world coordinates. */
@@ -76,6 +97,8 @@ export interface SemanticAnnotation {
 }
 
 export interface SemanticConnection {
+  /** Calibrated interior bends in model metres, retained by portable export/import. */
+  waypoints?: Vec3[];
   id: string;
   fromId: string;
   toId: string;
@@ -116,14 +139,26 @@ export interface ModelSourceInfo {
   name: string;
   size: number;
   sha256: string;
-  source: "demo" | "public" | "uploaded" | "generated";
+  source: "demo" | "public" | "uploaded" | "generated" | "empty";
+}
+
+export interface EditorPreferences {
+  showGrid: boolean;
+  showLabels: boolean;
+  showModel: boolean;
+  modelOpacity: number;
+  snapEnabled: boolean;
+  snapSize: number;
+  hiddenTypes: AnnotationType[];
 }
 
 export interface SemanticMapFileV2 {
+  editor?: EditorPreferences;
   schema: "skr-semantic-map";
   version: 2;
   exportedAt: string;
   coordinateSpace: CoordinateSpace;
+  objects?: Record<string, ModelObjectEdit>;
   project: ProjectInfo;
   model: ModelSourceInfo;
   calibration: Calibration;

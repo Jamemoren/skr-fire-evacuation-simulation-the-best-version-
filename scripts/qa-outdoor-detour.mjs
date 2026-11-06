@@ -29,7 +29,7 @@ try {
   const testPath = join(temp, "qa-outdoor-detour.cjs");
   writeFileSync(testPath, `
 const { EvacuationRuntime } = require('./simulation/runtime.js');
-const { createEvacuationGraph, pointRisk } = require('./simulation/graph.js');
+const { createEvacuationGraph, pointRisk, findPath } = require('./simulation/graph.js');
 const graph = createEvacuationGraph();
 const requiredNodes = ['sim-field-gate-left','sim-field-gate','sim-field-gate-right'];
 for (const id of requiredNodes) if (!graph.nodes.some(n => n.id === id)) throw new Error('missing parallel field gate ' + id);
@@ -59,6 +59,18 @@ const config = {
 };
 const runtime = new EvacuationRuntime();
 runtime.start(config);
+// The expanded campus also has a parking assembly. Explicitly set a field-bound
+// scenario so this test cannot silently miss its gate fire when all 12 prefer parking.
+let initialFieldRoutes = 0;
+const otherGates = new Set(['sim-field-gate-left','sim-field-gate-right']);
+const excluded = new Set(runtime.graph.edges.filter(e => otherGates.has(e.from) || otherGates.has(e.to)).map(e => e.id));
+const destination = runtime.graph.edges.find(e => e.from === 'sim-field-gate' && e.kind === 'assembly').to;
+for (const agent of runtime.agents) {
+  if (!agent.roomId.startsWith('b1-')) continue;
+  const path = findPath(runtime.graph, agent.route.nodeIds[0], [destination], runtime.config, [], 0, new Map(), excluded);
+  if (path && path.nodeIds.includes('sim-field-gate') && runtime.commitRoute(agent, path)) initialFieldRoutes += 1;
+}
+if (!initialFieldRoutes) throw new Error('test must begin with a physically valid field-bound route');
 runtime.addFire([-3, 0.22, 67], { fireRadius: 2.35, smokeRadius: 5.2, spreadRate: 0 });
 let observedLocalDetour = false;
 for (let i = 0; i < 1200 && runtime.getMetrics().arrived < config.populationTarget; i++) {
@@ -71,7 +83,7 @@ if (metrics.arrived !== config.populationTarget) throw new Error('field-gate fir
 if (metrics.blocked !== 0 || metrics.incapacitated !== 0 || contacts !== 0) throw new Error('detour safety failure: ' + JSON.stringify({metrics, contacts}));
 if (metrics.topologyViolations !== 0 || metrics.collisionCorrections !== 0) throw new Error('detour violated physical guards: ' + JSON.stringify(metrics));
 if (metrics.rerouteCount < 1 && !observedLocalDetour) throw new Error('test did not exercise local avoidance or alternate-gate routing');
-console.log(JSON.stringify({arrived:metrics.arrived, localDetour:observedLocalDetour, reroutes:metrics.rerouteCount, topologyViolations:metrics.topologyViolations, collisionCorrections:metrics.collisionCorrections, fireContacts:contacts, parallelGates:3}));
+console.log(JSON.stringify({arrived:metrics.arrived, initialFieldRoutes, localDetour:observedLocalDetour, reroutes:metrics.rerouteCount, topologyViolations:metrics.topologyViolations, collisionCorrections:metrics.collisionCorrections, fireContacts:contacts, parallelGates:3}));
 `);
   const result = execFileSync("node", [testPath], { cwd: temp, encoding: "utf8", timeout: 90000 }).trim();
   console.log(`Outdoor Detour QA ผ่าน: ${result}`);

@@ -3,6 +3,8 @@ import type {
   Calibration,
   ImportableSemanticMap,
   ModelReport,
+  ModelObjectEdit,
+  EditorPreferences,
   ModelSourceInfo,
   ProjectInfo,
   SemanticAnnotation,
@@ -14,6 +16,8 @@ import type {
 import { worldToModelLocal } from "./coordinates";
 
 interface BuildMapInput {
+  objects?: Record<string, ModelObjectEdit>;
+  editor?: EditorPreferences;
   project: ProjectInfo;
   model: ModelSourceInfo;
   calibration: Calibration;
@@ -28,6 +32,8 @@ export function buildSemanticMap(input: BuildMapInput): SemanticMapFile {
     version: 2,
     exportedAt: new Date().toISOString(),
     coordinateSpace: "model-local",
+    objects: input.objects ?? {},
+    editor: input.editor,
     project: input.project,
     model: input.model,
     calibration: input.calibration,

@@ -1,0 +1,42 @@
+{
+  "identity": "Building 3 (reference marker 5)",
+  "source": "อาคาร3-4.pdf",
+  "sourceSha256": "28ce21ea323c6aebbe2899b18bb2e8b3331784ef2c7fa11fba4e0a27c443c8f2",
+  "assetSha256": "5f1687f7d12d9d913b2426bc92dfee7a809f14ef261a00a5eb4d9e411af63f6f",
+  "floorCount": 4,
+  "columnGridCount": 21,
+  "columnSpacing": 4,
+  "structuralLength": 80,
+  "structuralDepth": 10.5,
+  "floorLevels": [
+    0.16,
+    4.2,
+    7.7,
+    11.2
+  ],
+  "position": [
+    -20,
+    0,
+    -43
+  ],
+  "openGroundFloor": true,
+  "stairCenters": [
+    -26,
+    26
+  ],
+  "bridgeLevel": 4,
+  "bridgeDeckElevation": 11.2,
+  "sourceSheets": [
+    "A-09",
+    "A-10",
+    "A-11",
+    "A-12",
+    "A-14",
+    "A-17",
+    "A-20",
+    "A-22",
+    "A-24"
+  ],
+  "sitePlacement": "Approximate from user sketch; bridge separation/design illustrative. Not surveyed.",
+  "runtime": "Visual and cutaway model; evacuation network remains Building 1."
+}

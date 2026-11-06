@@ -16,17 +16,17 @@ import * as THREE from "three";
 import { useMapperStore } from "../store";
 import { modelLocalToWorld } from "../utils/coordinates";
 import { surfaceHitFromIntersection } from "../utils/model";
+import { EditorGizmos } from "./EditorGizmos";
 import { AnnotationLayer } from "./AnnotationLayer";
 import { ConnectionsLayer } from "./ConnectionsLayer";
 import { DemoCampus } from "./DemoCampus";
 import { MeasurementLayer } from "./MeasurementLayer";
 import { ModelLayer } from "./ModelLayer";
 import { DaylightEnvironment } from "./DaylightEnvironment";
-import {
-  CINEMATIC_INTRO_DURATION_SECONDS,
-  CINEMATIC_INTRO_END_POSITION,
-  CINEMATIC_INTRO_END_TARGET,
-} from "./cinematicConfig";
+import { CINEMATIC_INTRO_END_FOV } from "./cinematicConfig";
+import { CinematicIntroScene } from "./intro/CinematicIntroScene";
+import { createIntroCameraPose, sampleIntroCamera } from "./intro/introCamera";
+import { introClock } from "./intro/introTimeline";
 import { SimulationScene } from "../simulation/SimulationScene";
 import { useEvacuationStore } from "../simulation/simulationStore";
 import { useBuilding1Store } from "../building1/building1Store";
@@ -37,11 +37,16 @@ import { fittedViewDistance } from "../rendering/cameraFraming";
 import { useWalkStore } from "../navigation/walkStore";
 import { STAIR_ZONE_CENTERS } from "../building1/building1Data";
 import { WalkCameraController } from "../navigation/WalkCameraController";
+import { RoleplayController, RoleplaySpawnMarker } from "../roleplay/RoleplayController";
+import { useRoleplayStore } from "../roleplay/roleplayStore";
 
-function fitCameraPosition(position: THREE.Vector3, target: THREE.Vector3, aspect: number, span: number) {
-  const distance = Math.max(0.01, position.distanceTo(target));
-  position.sub(target).multiplyScalar(fittedViewDistance(distance, 55, aspect, span) / distance).add(target);
+/** The old walk mode or the roleplay character owns the camera (orbit, focus and Ctrl look stand down). */
+function firstPersonActive() {
+  return useWalkStore.getState().enabled || useRoleplayStore.getState().phase === "playing";
 }
+import { freeAreaAspect, ViewportFrame } from "../rendering/ViewportFrame";
+import { SHRINE_FOCUS } from "../building1/siteLayout";
+import { CAMPUS_OVERVIEW_FOCUS, EXTENSION_FOCUS, BUILDING3_FOCUS, SKYBRIDGE_FOCUS } from "../building1/campusExtensionData";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -53,7 +58,7 @@ interface ErrorBoundaryState {
   failed: boolean;
 }
 
-function FrameTelemetry() {
+function FrameTelemetry({ adaptive = true }: { adaptive?: boolean }) {
   const setRenderFps = useEvacuationStore((state) => state.setRenderFps);
   const { gl } = useThree();
   const sample = useRef({ frames: 0, elapsed: 0, smoothedFps: 0 });
@@ -80,7 +85,9 @@ function FrameTelemetry() {
       ? measuredFps
       : sample.current.smoothedFps * 0.65 + measuredFps * 0.35;
     setRenderFps(sample.current.smoothedFps);
-    useQualityStore.getState().reportFps(measuredFps);
+    // The opening adapts its own effect density; switching renderer quality mid-shot would
+    // recompile every material and visibly stutter the choreography.
+    if (adaptive) useQualityStore.getState().reportFps(measuredFps);
     const renderStats = {
       fps: Math.round(sample.current.smoothedFps),
       calls: gl.info.render.calls,
@@ -225,7 +232,9 @@ function GodModeController({ surfaceRootRef, calibratedRootRef }: GodModeControl
 }
 
 function CameraController({ cinematicIntro = false }: { cinematicIntro?: boolean }) {
-  const walking = useWalkStore((state) => state.enabled);
+  const walkEnabled = useWalkStore((state) => state.enabled);
+  const roleplayPlaying = useRoleplayStore((state) => state.phase === "playing");
+  const walking = walkEnabled || roleplayPlaying;
   const viewMode = useBuilding1Store((state) => state.viewMode);
   const touch = useQualityStore((state) => state.touch);
   const cameraMode = useMapperStore((state) => state.cameraMode);
@@ -237,6 +246,7 @@ function CameraController({ cinematicIntro = false }: { cinematicIntro?: boolean
   const { camera, gl, size } = useThree();
   const orbitRef = useRef<ComponentRef<typeof OrbitControls> | null>(null);
   const [ctrlLockActive, setCtrlLockActive] = useState(false);
+  const transformDragging = useMapperStore((state) => state.transformDragging);
   const ctrlLockFallback = useRef(false);
   const navigationKeys = useRef(new Set<string>());
   const appliedFocus = useRef(false);
@@ -250,30 +260,9 @@ function CameraController({ cinematicIntro = false }: { cinematicIntro?: boolean
     targetDistance: 24,
     previousCursor: "",
   });
-  const introElapsed = useRef(0);
   const introWasActive = useRef(cinematicIntro);
   const introHandoffFocusToken = useRef<number | null>(null);
-  const introCameraPath = useMemo(() => new THREE.CatmullRomCurve3([
-    new THREE.Vector3(92, 62, 118),
-    new THREE.Vector3(28, 57, 154),
-    new THREE.Vector3(-72, 53, 132),
-    new THREE.Vector3(-108, 48, 48),
-    new THREE.Vector3(-78, 50, -42),
-    new THREE.Vector3(20, 54, -66),
-    new THREE.Vector3(96, 59, -8),
-    new THREE.Vector3(112, 64, 74),
-    new THREE.Vector3(...CINEMATIC_INTRO_END_POSITION),
-  ], false, "catmullrom", 0.46), []);
-  const introLookPath = useMemo(() => new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-18, 12, 42),
-    new THREE.Vector3(-18, 14, 47),
-    new THREE.Vector3(-14, 13, 50),
-    new THREE.Vector3(...CINEMATIC_INTRO_END_TARGET),
-  ], false, "catmullrom", 0.5), []);
-  const introVectors = useMemo(() => ({
-    position: new THREE.Vector3(),
-    target: new THREE.Vector3(),
-  }), []);
+  const introPose = useMemo(createIntroCameraPose, []);
   const navigationVectors = useMemo(() => ({
     forward: new THREE.Vector3(),
     right: new THREE.Vector3(),
@@ -285,9 +274,10 @@ function CameraController({ cinematicIntro = false }: { cinematicIntro?: boolean
       target instanceof HTMLInputElement
       || target instanceof HTMLTextAreaElement
       || target instanceof HTMLSelectElement
+      || (target instanceof HTMLElement && target.isContentEditable)
     );
     const onKeyDown = (event: KeyboardEvent) => {
-      if (isTyping(event.target) || document.querySelector('[role="dialog"]')) return;
+      if (isTyping(event.target) || event.ctrlKey || event.metaKey || event.altKey || document.querySelector('[role="dialog"], dialog[open]') || useMapperStore.getState().transformDragging) { navigationKeys.current.clear(); return; }
       if (["KeyW", "KeyA", "KeyS", "KeyD", "KeyQ", "KeyE", "ShiftLeft", "ShiftRight"].includes(event.code)) {
         navigationKeys.current.add(event.code);
         if (["KeyW", "KeyA", "KeyS", "KeyD"].includes(event.code)) event.preventDefault();
@@ -295,13 +285,16 @@ function CameraController({ cinematicIntro = false }: { cinematicIntro?: boolean
     };
     const onKeyUp = (event: KeyboardEvent) => navigationKeys.current.delete(event.code);
     const onBlur = () => navigationKeys.current.clear();
+    const onFocus = (event: FocusEvent) => { if (isTyping(event.target)) navigationKeys.current.clear(); };
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
+    window.addEventListener("focusin", onFocus);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
+      window.removeEventListener("focusin", onFocus);
     };
   }, []);
 
@@ -310,7 +303,7 @@ function CameraController({ cinematicIntro = false }: { cinematicIntro?: boolean
     const look = firstPersonLook.current;
 
     const syncOrbitTargetToView = () => {
-      if (useWalkStore.getState().enabled) return;
+      if (firstPersonActive()) return;
       const controls = orbitRef.current;
       if (!controls) return;
       const forward = new THREE.Vector3();
@@ -327,13 +320,13 @@ function CameraController({ cinematicIntro = false }: { cinematicIntro?: boolean
       look.pointerId = -1;
       surface.style.cursor = look.previousCursor;
       if (orbitRef.current) {
-        orbitRef.current.enabled = !useWalkStore.getState().enabled && !cinematicIntro && document.pointerLockElement !== surface;
-        if (!useWalkStore.getState().enabled) orbitRef.current.update();
+        orbitRef.current.enabled = !firstPersonActive() && !cinematicIntro && document.pointerLockElement !== surface;
+        if (!firstPersonActive()) orbitRef.current.update();
       }
     };
 
     const onPointerDown = (event: PointerEvent) => {
-      if (useWalkStore.getState().enabled || event.button !== 2 || cameraMode === "god" || cinematicIntro || document.pointerLockElement === surface) return;
+      if (useMapperStore.getState().transformDragging || firstPersonActive() || event.button !== 2 || cameraMode === "god" || cinematicIntro || document.pointerLockElement === surface) return;
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
@@ -352,6 +345,7 @@ function CameraController({ cinematicIntro = false }: { cinematicIntro?: boolean
     };
 
     const onPointerMove = (event: PointerEvent) => {
+      if (useRoleplayStore.getState().phase === "playing") return;
       const ctrlLocked = document.pointerLockElement === surface || ctrlLockFallback.current;
       if (!ctrlLocked && (!look.active || event.pointerId !== look.pointerId)) return;
       event.preventDefault();
@@ -389,8 +383,8 @@ function CameraController({ cinematicIntro = false }: { cinematicIntro?: boolean
       syncOrbitTargetToView();
       surface.style.cursor = look.previousCursor;
       if (orbitRef.current) {
-        orbitRef.current.enabled = !useWalkStore.getState().enabled && !cinematicIntro;
-        if (!useWalkStore.getState().enabled) orbitRef.current.update();
+        orbitRef.current.enabled = !firstPersonActive() && !cinematicIntro;
+        if (!firstPersonActive()) orbitRef.current.update();
       }
     };
     const setPointerLockFailed = () => {
@@ -405,6 +399,8 @@ function CameraController({ cinematicIntro = false }: { cinematicIntro?: boolean
       if (orbitRef.current) orbitRef.current.enabled = false;
     };
     const onPointerLockChange = () => {
+      // The roleplay controller owns Pointer Lock while it plays; this is not the Ctrl look.
+      if (useRoleplayStore.getState().phase === "playing") return;
       const active = document.pointerLockElement === surface;
       setCtrlLockActive(active);
       surface.dataset.ctrlLock = active ? "active" : "inactive";
@@ -431,7 +427,7 @@ function CameraController({ cinematicIntro = false }: { cinematicIntro?: boolean
         || (!ctrlKey && !fallbackEscape)
         || workMode !== "simulation"
         || cameraMode === "god"
-        || useWalkStore.getState().enabled
+        || firstPersonActive()
         || cinematicIntro
         || event.target instanceof HTMLInputElement
         || event.target instanceof HTMLTextAreaElement
@@ -485,9 +481,21 @@ function CameraController({ cinematicIntro = false }: { cinematicIntro?: boolean
     };
   }, [camera, cameraMode, cinematicIntro, gl, workMode]);
 
+  const applyIntroPose = (time: number, still: boolean) => {
+    sampleIntroCamera(time, size.width / Math.max(1, size.height), calibration, introPose, still);
+    camera.position.copy(introPose.position);
+    camera.lookAt(introPose.target);
+    const perspective = camera as THREE.PerspectiveCamera;
+    if (perspective.isPerspectiveCamera && Math.abs(perspective.fov - introPose.fov) > 1e-4) {
+      perspective.fov = introPose.fov;
+      perspective.updateProjectionMatrix();
+    }
+    camera.updateMatrixWorld();
+    orbitRef.current?.target.copy(introPose.target);
+  };
+
   useEffect(() => {
     if (cinematicIntro) {
-      introElapsed.current = 0;
       introWasActive.current = true;
       introHandoffFocusToken.current = null;
       gl.domElement.dataset.introState = "running";
@@ -496,37 +504,24 @@ function CameraController({ cinematicIntro = false }: { cinematicIntro?: boolean
     }
     if (!introWasActive.current) return;
 
+    // Finished or skipped: always land on the exact operational pose and restore the lens.
     introWasActive.current = false;
-    introCameraPath.getPointAt(1, introVectors.position);
-    introLookPath.getPointAt(1, introVectors.target);
-    fitCameraPosition(introVectors.position, introVectors.target, size.width / size.height, 190);
-    camera.position.copy(introVectors.position);
-    camera.lookAt(introVectors.target);
-    camera.updateMatrixWorld();
+    applyIntroPose(Number.POSITIVE_INFINITY, true);
+    const perspective = camera as THREE.PerspectiveCamera;
+    if (perspective.isPerspectiveCamera) perspective.fov = CINEMATIC_INTRO_END_FOV;
     camera.updateProjectionMatrix();
-    orbitRef.current?.target.copy(introVectors.target);
     orbitRef.current?.update();
     introHandoffFocusToken.current = cameraFocusToken;
     gl.domElement.dataset.introState = "held";
-    gl.domElement.dataset.introPose = `${camera.position.toArray().map((value) => value.toFixed(3)).join(",")}|${introVectors.target.toArray().map((value) => value.toFixed(3)).join(",")}`;
-  }, [camera, cameraFocusToken, cinematicIntro, gl, introCameraPath, introLookPath, introVectors, size.width, size.height]);
+    gl.domElement.dataset.introPose = `${camera.position.toArray().map((value) => value.toFixed(3)).join(",")}|${introPose.target.toArray().map((value) => value.toFixed(3)).join(",")}`;
+  }, [camera, cameraFocusToken, cinematicIntro, gl, introPose, size.width, size.height]);
 
-  useFrame((_, delta) => {
+  useFrame(() => {
     if (!cinematicIntro) return;
-    introElapsed.current += Math.min(delta, 0.08);
-    const progress = Math.min(1, introElapsed.current / CINEMATIC_INTRO_DURATION_SECONDS);
-    // Quintic smootherstep reaches zero velocity and zero acceleration at both ends.
-    const eased = progress * progress * progress * (progress * (progress * 6 - 15) + 10);
-    introCameraPath.getPointAt(eased, introVectors.position);
-    introLookPath.getPointAt(eased, introVectors.target);
-    fitCameraPosition(introVectors.position, introVectors.target, size.width / size.height, 190);
-    camera.position.copy(introVectors.position);
-    camera.lookAt(introVectors.target);
-    camera.updateMatrixWorld();
-    orbitRef.current?.target.copy(introVectors.target);
-    if (progress >= 1) {
+    applyIntroPose(introClock.elapsed, introClock.mode === "reduced");
+    if (introClock.completed) {
       gl.domElement.dataset.introState = "settled";
-      gl.domElement.dataset.introPose = `${camera.position.toArray().map((value) => value.toFixed(3)).join(",")}|${introVectors.target.toArray().map((value) => value.toFixed(3)).join(",")}`;
+      gl.domElement.dataset.introPose = `${camera.position.toArray().map((value) => value.toFixed(3)).join(",")}|${introPose.target.toArray().map((value) => value.toFixed(3)).join(",")}`;
     }
   });
 
@@ -545,7 +540,8 @@ function CameraController({ cinematicIntro = false }: { cinematicIntro?: boolean
   });
 
   useFrame((_, delta) => {
-    if (walking || cameraMode === "god" || !orbitRef.current || navigationKeys.current.size === 0) return;
+    if (navigationKeys.current.size && (transformDragging || document.querySelector('[role="dialog"], dialog[open]'))) { navigationKeys.current.clear(); return; }
+    if (walking || cinematicIntro || cameraMode === "god" || !orbitRef.current || navigationKeys.current.size === 0) return;
     const { forward, right, movement } = navigationVectors;
     camera.getWorldDirection(forward);
     forward.y = 0;
@@ -603,9 +599,23 @@ function CameraController({ cinematicIntro = false }: { cinematicIntro?: boolean
     const interior = viewMode === "interior" || viewMode === "single-floor";
     const stairFocus = interior && Object.values(STAIR_ZONE_CENTERS).some((c) => Math.abs(c[0] - cameraFocus[0]) < .01 && Math.abs(c[2] - cameraFocus[2]) < .01);
     const roomFocus = interior && !stairFocus && cameraFocus[2] < 0;
+    const samePlanFocus = (p: readonly number[]) => cameraFocus[0] === p[0] && cameraFocus[2] === p[2];
+    const extensionFocus = samePlanFocus(EXTENSION_FOCUS);
+    const building3Focus = samePlanFocus(BUILDING3_FOCUS);
+    const bridgeFocus = samePlanFocus(SKYBRIDGE_FOCUS);
+    const shrineFocus = samePlanFocus(SHRINE_FOCUS);
     let offset: THREE.Vector3;
     if (cameraMode === "top") {
       offset = new THREE.Vector3(0, workMode === "simulation" ? 125 : 35, 0.01);
+    } else if (shrineFocus) {
+      offset = new THREE.Vector3(-38, 7, 14);
+    } else if (building3Focus) {
+      // Approach from the west: the tall Building 1 must not occlude the low northern wing.
+      offset = new THREE.Vector3(-85, 35, 45);
+    } else if (extensionFocus) {
+      offset = new THREE.Vector3(45, 30, 70);
+    } else if (bridgeFocus) {
+      offset = new THREE.Vector3(-25, 18, 35);
     } else if (stairFocus) {
       offset = new THREE.Vector3(-10, 12, 15);
     } else if (workMode === "simulation" && interior) {
@@ -619,8 +629,9 @@ function CameraController({ cinematicIntro = false }: { cinematicIntro?: boolean
     } else {
       offset = new THREE.Vector3(14, 10, 14);
     }
-    const span = stairFocus ? 22 : workMode === "simulation" ? interior ? roomFocus ? 14 : 96 : cameraFocus[2] > 70 ? 112 : cameraFocus[2] > 38 ? 190 : 120 : 45;
-    offset.setLength(fittedViewDistance(offset.length(), 55, size.width / size.height, span));
+    const campusOverview = samePlanFocus(CAMPUS_OVERVIEW_FOCUS);
+    const span = campusOverview ? 390 : shrineFocus ? 42 : bridgeFocus ? 32 : extensionFocus || building3Focus ? 110 : stairFocus ? 22 : workMode === "simulation" ? interior ? roomFocus ? 14 : 96 : cameraFocus[2] > 70 ? 112 : cameraFocus[2] > 38 ? 190 : 120 : 45;
+    offset.setLength(fittedViewDistance(offset.length(), 55, freeAreaAspect(size.width, size.height), span));
     const destination = target.clone().add(offset);
     const resized = focusSize.current.width !== size.width || focusSize.current.height !== size.height;
     focusSize.current = { width: size.width, height: size.height };
@@ -644,7 +655,7 @@ function CameraController({ cinematicIntro = false }: { cinematicIntro?: boolean
         ref={orbitRef}
         makeDefault
         onStart={() => { focusMotion.current = null; }}
-        enabled={!walking && !cinematicIntro && !ctrlLockActive}
+        enabled={!walking && !cinematicIntro && !ctrlLockActive && !transformDragging}
         enableDamping={!walking}
         dampingFactor={0.08}
         screenSpacePanning
@@ -681,6 +692,7 @@ function SceneContents({ cinematicIntro = false }: { cinematicIntro?: boolean })
   const cameraMode = useMapperStore((state) => state.cameraMode);
   const toolMode = useMapperStore((state) => state.toolMode);
   const placementType = useMapperStore((state) => state.placementType);
+  const modelKind = useMapperStore((state) => state.modelSource.source);
   const modelUrl = useMapperStore((state) => state.modelUrl);
   const setInspectedHit = useMapperStore((state) => state.setInspectedHit);
   const openDraftFromHit = useMapperStore((state) => state.openDraftFromHit);
@@ -736,6 +748,7 @@ function SceneContents({ cinematicIntro = false }: { cinematicIntro?: boolean })
     const wasMultiTouch = multiTouch.current;
     if (!pointers.current.size) multiTouch.current = false;
     tapStart.current = null;
+    if (useMapperStore.getState().transformDragging || Date.now() - useMapperStore.getState().lastTransformAt < 250) return;
     if (!start || start.id !== event.pointerId || wasMultiTouch
       || Math.hypot(event.clientX - start.x, event.clientY - start.y) > 7) return;
     if (cameraMode === "god" || event.button !== 0) return;
@@ -759,7 +772,7 @@ function SceneContents({ cinematicIntro = false }: { cinematicIntro?: boolean })
   return (
     <>
       <DaylightEnvironment />
-      <FrameTelemetry />
+      <FrameTelemetry adaptive={!cinematicIntro} />
       <StaticShadowRefresh />
       {showGrid && <gridHelper args={[1200, 240, "#3c6074", "#162b36"]} position={[0, -0.02, 0]} />}
       {showGrid && <axesHelper args={[12]} />}
@@ -789,10 +802,15 @@ function SceneContents({ cinematicIntro = false }: { cinematicIntro?: boolean })
         {workMode === "editor" && !focusMode && <ConnectionsLayer />}
         {workMode === "editor" && !focusMode && <AnnotationLayer />}
         {workMode === "editor" && <MeasurementLayer />}
-        <SimulationScene />
+        {workMode === "editor" && !focusMode && <EditorGizmos calibratedRoot={calibratedRootRef} />}
+        {!modelUrl && modelKind === "generated" && <SimulationScene />}
+        <RoleplaySpawnMarker />
       </group>
       <CameraController cinematicIntro={cinematicIntro} />
+      <ViewportFrame />
+      {cinematicIntro && <CinematicIntroScene />}
       <WalkCameraController />
+      <RoleplayController />
       <GodModeController surfaceRootRef={surfaceRootRef} calibratedRootRef={calibratedRootRef} />
     </>
   );
@@ -801,13 +819,13 @@ function SceneContents({ cinematicIntro = false }: { cinematicIntro?: boolean })
 export function SceneCanvas({ cinematicIntro = false }: { cinematicIntro?: boolean }) {
   // Keep the initial camera options stable. Recreating the position array on a quality or
   // visibility change makes Fiber reset a camera the user has already moved.
-  const initialCamera = useMemo(() => ({ position: [85, 70, 85] as [number, number, number], fov: 55, near: 0.03, far: 10000 }), []);
+  const initialCamera = useMemo(() => ({ position: [85, 70, 85] as [number, number, number], fov: 55, near: 0.15, far: 3000 }), []);
   const snapshotMode = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("snapshot");
   const tier = useQualityStore((state) => state.tier);
   const preset = QUALITY_PRESETS[tier];
   const visible = usePageVisible();
   return (
-    <Canvas
+    <Canvas className="scene-render-surface"
       shadows={preset.shadows}
       frameloop={!visible ? "never" : snapshotMode ? "demand" : "always"}
       dpr={Math.min(window.devicePixelRatio || 1, preset.dpr)}
@@ -823,6 +841,9 @@ export function SceneCanvas({ cinematicIntro = false }: { cinematicIntro?: boole
         gl.shadowMap.needsUpdate = true;
       }}
       onPointerMissed={() => {
+        const state = useMapperStore.getState();
+        if (state.transformDragging || Date.now() - state.lastTransformAt < 250) return;
+        state.selectObject(null);
         useMapperStore.getState().selectAnnotation(null);
         useMapperStore.getState().selectConnection(null);
       }}

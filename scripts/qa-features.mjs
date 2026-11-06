@@ -64,15 +64,16 @@ mustText("src/simulation/graph.ts", /DEFAULT_HARD_BLOCK_TEMPERATURE_C[\s\S]*mode
 mustText("src/simulation/graph.ts", /export function dijkstraPath[\s\S]*return findPath\([\s\S]*excluded, 0\)/, "Dijkstra implementation using the production dynamic edge cost");
 mustText("src/simulation/graph.ts", /hardBlockTemperatureC[\s\S]*return Infinity[\s\S]*thermalPenalty/, "hard thermal edge blocking and weighted thermal route cost");
 mustText("src/simulation/runtime.ts", /thermalLookAheadEdges[\s\S]*thermalBlocked[\s\S]*thermalRerouteCount/, "configurable thermal look-ahead and reroute accounting");
-mustText("src/simulation/SimulationDashboard.tsx", /แบบจำลองความร้อนเชิงประมาณ[\s\S]*อุณหภูมิห้ามผ่าน \(°C\)[\s\S]*จำนวนช่วงเส้นทางที่ตรวจล่วงหน้า/, "operator thermal controls with scientific-honesty label");
+// UI moved to src/simulation/dashboard/* in the Precision Intelligence redesign (Nov 2026).
+mustText("src/simulation/dashboard/ControlPanel.tsx", /แบบจำลองความร้อนเชิงประมาณ[\s\S]*ห้ามผ่าน[\s\S]*ช่วงเส้นทางที่ตรวจล่วงหน้า[\s\S]*ไม่ใช่ CFD\/FDS/, "operator thermal controls with scientific-honesty label");
 mustText("src/simulation/runtime.ts", /p95Arrival[\s\S]*blockedThermalEdges[\s\S]*smokeAffectedEdges[\s\S]*maxQueue/, "derived evacuation and thermal performance metrics");
 mustText("src/simulation/runtime.ts", /heatDetectionThreshold/, "individual thermal perception threshold");
 mustText("src/simulation/runtime.ts", /thermalRetreat/, "pre-contact thermal retreat response");
 mustText("src/simulation/runtime.ts", /protectivePosture/, "realistic low-smoke protective posture");
 mustText("src/components/DaylightEnvironment.tsx", /survival|SoftCloud|mieCoefficient/i, "upgraded atmospheric sky");
 mustText("src/building1/Building1DigitalTwin.tsx", /ARCHITECTURAL_MODEL_REFINEMENT/, "school architectural realism upgrade");
-mustText("src/simulation/SimulationDashboard.tsx", /การวางแผนเส้นทางตามความเสี่ยง/, "risk-aware route planning UI");
-mustText("src/simulation/SimulationDashboard.tsx", /activeSpreadFireCount[\s\S]*travellingFireFrontCount[\s\S]*กำลังลาม/, "separate travelling fire-front and ignited-object counts");
+mustText("src/simulation/dashboard/ControlPanel.tsx", /เทียบเวลาและความเสี่ยง/, "risk-aware route planning UI");
+mustText("src/simulation/dashboard/ControlPanel.tsx", /const burning[\s\S]*const travelling[\s\S]*กำลังลาม/, "separate travelling fire-front and ignited-object counts");
 mustText("src/simulation/graph.ts", /routeIsPhysicallyValid[\s\S]*topologyAllowed[\s\S]*pointInsideWalkableCorridor/, "hard physical route validation");
 mustText("src/simulation/runtime.ts", /forecastRouteSurvival[\s\S]*projectedSmokeDose[\s\S]*projectedHeatDose[\s\S]*survivable/, "agent-specific survival forecast");
 mustText("src/simulation/runtime.ts", /compareSurvivalForecast[\s\S]*a\.survivable[\s\S]*a\.eta - b\.eta/, "lexicographic safe-then-fast route selection");
@@ -90,25 +91,30 @@ mustText("src/simulation/fireField.ts", /flameCellsAt[\s\S]*spreadTravelStartTim
 mustText("src/simulation/runtime.ts", /preferredSpacing/, "pedestrian personal-space steering");
 mustText("src/simulation/runtime.ts", /setWalkingSpeed[\s\S]*ratio[\s\S]*reroutePathCache\.clear/, "live unlimited bot-speed update");
 mustText("src/simulation/simulationStore.ts", /setWalkingSpeed[\s\S]*normalizeWalkingSpeed[\s\S]*evacuationRuntime\.setWalkingSpeed/, "uncapped walking-speed store control");
-mustText("src/simulation/SimulationDashboard.tsx", /sim-unbounded-speed[\s\S]*ความเร็วการเดิน[\s\S]*aria-label="Walking speed"[\s\S]*min="0\.01"/, "no-upper-limit walking-speed input");
+mustText("src/simulation/dashboard/ControlPanel.tsx", /ความเร็วการเดิน[\s\S]*min="0\.01"/, "no-upper-limit walking-speed input");
 mustText("src/simulation/simulationStore.ts", /FIRE_PATTERN_STORAGE_KEY/, "persistent fire and smoke pattern memory");
 mustText("src/simulation/simulationStore.ts", /sanitizeStoredFireSource[\s\S]*finiteBetween[\s\S]*localStorage\.setItem[\s\S]*catch/, "validated and failure-safe local fire pattern storage");
 mustText("src/simulation/SimulationScene.tsx", /incapacitatedAt/, "animated fallen student pose");
-mustText("src/simulation/SimulationScene.tsx", /simulatedSlice[\s\S]*maxSubstep[\s\S]*substeps[\s\S]*evacuationRuntime\.step\(substepDt\)/, "high-speed fixed micro-substep integration");
+// Replaced by fixed-step simulation (FIXED_SIMULATION_DT); frames only choose how many steps run.
+mustText("src/simulation/SimulationScene.tsx", /evacuationRuntime\.advance\(Math\.min\(dt, 0\.1\) \* store\.speedFactor, maxSteps, budgetMs\)/, "frame-rate-independent fixed-step integration");
+mustText("src/simulation/runtime.ts", /FIXED_SIMULATION_DT = 0\.1[\s\S]*advance\(seconds: number[\s\S]*this\.stepFixed\(FIXED_SIMULATION_DT\)/, "fixed simulation step in the runtime");
 mustText("src/simulation/SimulationScene.tsx", /PER_AGENT_CAMERA_FRUSTUM[\s\S]*setFromProjectionMatrix[\s\S]*intersectsSphere/, "offscreen student instance compaction");
 mustText("src/simulation/graph.ts", /stairExitDoorId/, "shared stair-exit portal routing");
-mustText("src/simulation/SimulationDashboard.tsx", /evacuation-physical-route\.png/, "illustrated evacuation workflow");
+mustText("src/simulation/dashboard/ControlPanel.tsx", /evacuation-physical-route\.png/, "illustrated evacuation workflow");
 mustText("src/styles.css", /White simulation command interface/, "white simulator UI");
-mustText("src/simulation/SimulationDashboard.tsx", /ลดเวลาอพยพโดยรวม/, "system-level route allocation UI label");
+mustText("src/simulation/dashboard/ControlPanel.tsx", /ลดเวลาอพยพโดยรวม/, "system-level route allocation UI label");
 mustText("src/simulation/operationalReadiness.ts", /evaluateOperationalReadiness[\s\S]*routeIsPhysicallyValid[\s\S]*validRoutes === TOTAL_CLASSROOMS/, "browser-side physical route pre-flight");
-mustText("src/simulation/semanticGraph.ts", /createEvacuationGraph[\s\S]*graph\.nodes\.map[\s\S]*graph\.edges\.map/, "semantic map mirrors simulation graph");
-mustText("src/simulation/SimulationDashboard.tsx", /ความพร้อมก่อนเริ่มการจำลอง[\s\S]*disabled=\{!preflightReady\}/, "fail-closed operational readiness UI");
-mustText("src/styles.css", /sim-readiness-strip[\s\S]*app-fatal-shell/, "readiness and recovery visual system");
+mustText("src/simulation/semanticGraph.ts", /createEvacuationGraph[\s\S]*graph\.nodes[\s\S]*graph\.edges\.map/, "semantic map mirrors simulation graph");
+mustText("src/simulation/dashboard/ControlPanel.tsx", /ความพร้อมก่อนเริ่มการจำลอง/, "operational readiness card");
+mustText("src/simulation/dashboard/CommandHeader.tsx", /aria-disabled=\{blocked \? "true" : undefined\}[\s\S]*onBlockedStart/, "fail-closed operational readiness UI");
+mustText("src/simulation/dashboard/workspace.css", /\.sw-readiness/, "readiness visual system");
+mustText("src/design/editor-theme.css", /\.app-fatal-shell/, "recovery visual system");
 mustText("index.html", /โรงเรียนสวนกุหลาบวิทยาลัย รังสิต[\s\S]*skr-school-emblem\.png/, "correct school metadata and emblem");
 mustText("src/components/SceneCanvas.tsx", /firstPersonLook[\s\S]*event\.button\s*!==\s*2[\s\S]*setPointerCapture[\s\S]*orientation\.y[\s\S]*orientation\.x/, "right-drag first-person camera look");
 mustText("src/components/SceneCanvas.tsx", /onContextMenu[\s\S]*event\.preventDefault/, "right-click menu suppression on the 3D canvas");
 mustText("src/components/SceneCanvas.tsx", /mouseButtons=\{\{[\s\S]*LEFT:\s*undefined[\s\S]*RIGHT:\s*THREE\.MOUSE\.ROTATE/, "left click stays available for actions; right button controls camera look");
-mustText("src/components/SceneCanvas.tsx", /CatmullRomCurve3[\s\S]*Quintic smootherstep[\s\S]*getPointAt/, "arc-length cinematic camera with smooth acceleration");
+// The cinematic camera moved to intro/introCamera.ts (centripetal Catmull-Rom + C1 Hermite time warp).
+mustText("src/components/intro/introCamera.ts", /CatmullRomCurve3[\s\S]*"centripetal"[\s\S]*function warp[\s\S]*2 \* s3 - 3 \* s2 \+ 1/, "smooth-acceleration cinematic camera");
 mustText("src/components/SceneCanvas.tsx", /introHandoffFocusToken[\s\S]*dataset\.introState = "held"/, "jump-free cinematic camera handoff");
 mustText("src/components/cinematicConfig.ts", /CINEMATIC_INTRO_END_POSITION[\s\S]*CINEMATIC_INTRO_END_TARGET/, "shared cinematic final pose");
 mustText("src/building1/Building1DigitalTwin.tsx", /StaticBoxBatcher[\s\S]*new THREE\.InstancedMesh[\s\S]*StaticDrawUsage/, "GPU instancing for repeated architectural meshes");
@@ -141,18 +147,21 @@ const stairs = map.annotations.filter((item) => item.type === "stair");
 const zones = map.annotations.filter((item) => item.type === "assembly-area");
 const people = classrooms.reduce((sum, item) => sum + Number(item.peopleCount || 0), 0);
 const capacity = zones.reduce((sum, item) => sum + Number(item.capacity || 0), 0);
+// Campus expansion (CAMPUS_UPDATE.md, Nov 2026): Building 1 keeps 96 rooms on floors 2–9 and
+// Buildings 3–4 add 24 rooms each; 3,000 people in total; 6 field zones + 3 parking zones.
 checks += 5;
-if (classrooms.length !== 96) fail.push(`ห้องเรียนต้อง 96 แต่ได้ ${classrooms.length}`);
-if (stairs.length !== 27) fail.push(`Stair nodes ต้อง 27 แต่ได้ ${stairs.length}`);
-if (zones.length !== 6) fail.push(`Assembly zones ต้อง 6 แต่ได้ ${zones.length}`);
+const b1Rooms = classrooms.filter((room) => String(room.id).startsWith("b1-"));
+if (classrooms.length !== 144 || b1Rooms.length !== 96) fail.push(`ห้องเรียนต้อง 144 (อาคาร 1 = 96) แต่ได้ ${classrooms.length} (${b1Rooms.length})`);
+if (stairs.length !== 43) fail.push(`Stair nodes ต้อง 43 แต่ได้ ${stairs.length}`);
+if (zones.length !== 9) fail.push(`Assembly zones ต้อง 9 แต่ได้ ${zones.length}`);
 if (people !== 3000) fail.push(`ประชากร target ต้อง 3000 แต่ได้ ${people}`);
-if (capacity !== 3000) fail.push(`สนามต้องรองรับรวม 3000 แต่ได้ ${capacity}`);
+if (capacity < people) fail.push(`จุดรวมพลต้องรองรับอย่างน้อย ${people} แต่ได้ ${capacity}`);
 
 const floorPopulation = Object.fromEntries(Array.from({ length: 8 }, (_, index) => [index + 2, 0]));
-classrooms.forEach((room) => { floorPopulation[room.floor] = (floorPopulation[room.floor] || 0) + Number(room.peopleCount || 0); });
+b1Rooms.forEach((room) => { floorPopulation[room.floor] = (floorPopulation[room.floor] || 0) + Number(room.peopleCount || 0); });
 checks += 8;
 for (let floor = 2; floor <= 9; floor += 1) {
-  if (floorPopulation[floor] !== 375) fail.push(`ชั้น ${floor} ต้องมีประชากร 375 คน แต่ได้ ${floorPopulation[floor]}`);
+  if (floorPopulation[floor] !== 250) fail.push(`อาคาร 1 ชั้น ${floor} ต้องมีประชากร 250 คน แต่ได้ ${floorPopulation[floor]}`);
 }
 
 if (fail.length) {

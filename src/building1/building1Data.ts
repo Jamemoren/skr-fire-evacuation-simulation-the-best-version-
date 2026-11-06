@@ -1,4 +1,5 @@
 import type { SemanticAnnotation, Vec3 } from "../types";
+import { SITE_LAYOUT } from "./siteLayout";
 
 export const BUILDING_ID = "building-1";
 export const FLOOR_COUNT = 9;
@@ -73,9 +74,9 @@ export const CORE_LIFT_X = [-2.15, 0.55] as const;
 export const CORE_LIFT_Z = -7.9;
 export const CORE_LIFT_SIZE = [2.35, 3.26, 3.18] as const;
 
-export const FIELD_CENTER: Vec3 = [-3, 0, 92];
-export const FIELD_SIZE: Vec3 = [104, 0.5, 62];
-export const FIELD_PITCH_SIZE: Vec3 = [66, 0.25, 33];
+export const FIELD_CENTER: Vec3 = SITE_LAYOUT.fieldCenter;
+export const FIELD_SIZE: Vec3 = SITE_LAYOUT.fieldSize;
+export const FIELD_PITCH_SIZE: Vec3 = [33, 0.25, 66];
 export const ASSEMBLY_ZONE_CAPACITY = 500;
 export const ASSEMBLY_ZONE_OFFSETS: Array<[string, number, number]> = [
   ["A", -20, -8], ["B", 0, -8], ["C", 20, -8],
@@ -86,6 +87,9 @@ export type WingSide = "pink" | "blue";
 export type StairZone = "left" | "center" | "right";
 
 export interface RoomModuleDefinition {
+  buildingId?: string;
+  walkPosition?: Vec3;
+  doorPosition?: Vec3;
   id: string;
   name: string;
   floor: number;

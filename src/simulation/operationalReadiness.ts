@@ -1,14 +1,12 @@
 import {
-  ASSEMBLY_ZONE_CAPACITY,
-  ASSEMBLY_ZONE_OFFSETS,
-  CLASSROOMS,
   FLOOR_COUNT,
   STAIR_ZONE_CENTERS,
   TARGET_POPULATION,
-  TOTAL_CLASSROOMS,
 } from "../building1/building1Data";
 import { createEvacuationGraph, findPath, routeIsPhysicallyValid } from "./graph";
 import type { SimulationConfig } from "./types";
+import { ALL_CLASSROOMS as CLASSROOMS } from "./campusData";
+const TOTAL_CLASSROOMS = CLASSROOMS.length;
 
 export interface OperationalCheck {
   id: "building" | "population" | "portals" | "stairs" | "assembly" | "routes";
@@ -71,10 +69,10 @@ export function evaluateOperationalReadiness(): OperationalReadinessReport {
   const checks: OperationalCheck[] = [
     {
       id: "building",
-      label: "9-FLOOR MODEL",
-      detail: `${FLOOR_COUNT} ชั้น · ${TOTAL_CLASSROOMS} ห้อง`,
-      passed: FLOOR_COUNT === 9 && CLASSROOMS.length === TOTAL_CLASSROOMS
-        && Array.from({ length: 8 }, (_, index) => roomFloors.get(index + 2) === 12).every(Boolean),
+      label: "CAMPUS MODEL",
+      detail: `อาคาร 1, 3, 4 · ${TOTAL_CLASSROOMS} ห้อง`,
+      passed: FLOOR_COUNT === 9 && CLASSROOMS.length === 144
+        && Array.from({ length: 8 }, (_, index) => roomFloors.get(index + 2) === (index < 3 ? 28 : 12)).every(Boolean),
     },
     {
       id: "population",
@@ -91,20 +89,21 @@ export function evaluateOperationalReadiness(): OperationalReadinessReport {
     {
       id: "stairs",
       label: "STAIR NETWORK",
-      detail: `${Object.keys(STAIR_ZONE_CENTERS).length} โซน · ${stairNodes.length} nodes`,
-      passed: stairNodes.length === FLOOR_COUNT * 3 && stairExitPortals.length === 3,
+      detail: `${Object.keys(STAIR_ZONE_CENTERS).length + 4} โซน · ${stairNodes.length} nodes`,
+      passed: stairNodes.length === FLOOR_COUNT * 3 + 16 && stairExitPortals.length === 3
+        && graph.nodes.filter(n=>n.id.startsWith("campus-b") && n.type==="exit").length===4,
     },
     {
       id: "assembly",
       label: "ASSEMBLY CAPACITY",
-      detail: `${ASSEMBLY_ZONE_OFFSETS.length} × ${ASSEMBLY_ZONE_CAPACITY.toLocaleString("th-TH")}`,
-      passed: assemblyNodes.length === ASSEMBLY_ZONE_OFFSETS.length
-        && assemblyNodes.reduce((sum, node) => sum + node.capacity, 0) === TARGET_POPULATION,
+      detail: `${assemblyNodes.length} โซน · ${assemblyNodes.reduce((s,n)=>s+n.capacity,0).toLocaleString("th-TH")} คน`,
+      passed: assemblyNodes.length === 9
+        && assemblyNodes.reduce((sum, node) => sum + node.capacity, 0) >= TARGET_POPULATION,
     },
     {
       id: "routes",
       label: "PHYSICAL ROUTES",
-      detail: `${validRoutes}/${TOTAL_CLASSROOMS} ถึงสนาม`,
+      detail: `${validRoutes}/${TOTAL_CLASSROOMS} ถึงจุดรวมพล`,
       passed: validRoutes === TOTAL_CLASSROOMS,
     },
   ];

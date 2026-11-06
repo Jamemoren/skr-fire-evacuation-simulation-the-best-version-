@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/mobile", "destination": "/mobile.html" },
+    { "source": "/mobile/:path*", "destination": "/mobile.html" }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "ระบบนำทางอพยพ สวนกุหลาบวิทยาลัย รังสิต",
+  "short_name": "นำทางอพยพ",
+  "description": "ต้นแบบระบบนำทางอพยพสำหรับการฝึกซ้อม — ไม่ใช่ระบบแจ้งเหตุหลักของอาคาร",
+  "lang": "th",
+  "start_url": "/mobile",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f7fb",
+  "theme_color": "#13294a",
+  "icons": [
+    { "src": "/assets/skr-school-emblem.png", "sizes": "447x447", "type": "image/png", "purpose": "any" }
+  ]
+}

@@ -4,10 +4,51 @@ import { pointInsideWalkableCorridor, walkableHalfWidth } from "./walkable";
 export function edgeAllowsDetour(edge: SimEdge): boolean {
   // Door openings and switchback stairs retain their exact, narrow physical portals.
   return edge.kind === "outdoor" || edge.kind === "assembly"
+    || edge.id.startsWith("edge-door-corr-")
     || ((edge.kind === "corridor" || edge.kind === "junction") && !edge.id.includes("door"));
 }
 
 const distance = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+
+interface WalkwayGrid {
+  centers: Vec3[]; points: Vec3[]; offsets: number[]; lanes: number;
+  pointIds: Map<Vec3, number>; validity: Int8Array; links: Map<number, boolean>;
+}
+const walkwayGrids = new WeakMap<SimEdge, Map<string, WalkwayGrid>>();
+
+/** Geometry is static between searches; only flame tests must be repeated as a fire grows. */
+function walkwayGrid(path: Vec3[], edge: SimEdge): WalkwayGrid {
+  const key = JSON.stringify([edge.width, edge.kind, edge.insideBuilding, walkableHalfWidth(edge), path]);
+  let cache = walkwayGrids.get(edge);
+  if (!cache) { cache = new Map(); walkwayGrids.set(edge, cache); }
+  const cached = cache.get(key);
+  if (cached) return cached;
+  const centers: Vec3[] = [path[0]];
+  for (let i = 1; i < path.length; i += 1) {
+    const a = path[i - 1], b = path[i];
+    const steps = Math.max(1, Math.ceil(distance(a, b) / 0.5));
+    for (let step = 1; step <= steps; step += 1) {
+      const t = step / steps;
+      centers.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]);
+    }
+  }
+  const halfWidth = Math.max(0, walkableHalfWidth(edge) - 0.04);
+  const halfLanes = Math.max(1, Math.ceil(halfWidth / 0.28)), lanes = halfLanes * 2 + 1;
+  const points: Vec3[] = [], offsets: number[] = [];
+  centers.forEach((center, row) => {
+    const before = centers[Math.max(0, row - 1)], after = centers[Math.min(centers.length - 1, row + 1)];
+    const dx = after[0] - before[0], dz = after[2] - before[2], length = Math.max(0.001, Math.hypot(dx, dz));
+    for (let lane = 0; lane < lanes; lane += 1) {
+      const offset = (lane - halfLanes) / halfLanes * halfWidth;
+      points.push([center[0] - dz / length * offset, center[1], center[2] + dx / length * offset]);
+      offsets.push(offset);
+    }
+  });
+  const grid: WalkwayGrid = { centers, points, offsets, lanes, pointIds: new Map(points.map((p, i) => [p, i])), validity: new Int8Array(points.length), links: new Map() };
+  if (cache.size >= 4) cache.delete(cache.keys().next().value!);
+  cache.set(key, grid);
+  return grid;
+}
 
 export function segmentInsideWalkway(a: Vec3, b: Vec3, path: Vec3[], edge: SimEdge): boolean {
   const count = Math.max(1, Math.ceil(distance(a, b) / 0.16));
@@ -24,6 +65,8 @@ interface DetourOptions {
   allowStartLanes?: boolean;
   allowGoalLanes?: boolean;
   goalAllowed?: (point: Vec3) => boolean;
+  /** Soft personal preference in metres; hazards and walls always take precedence. */
+  lateralPreference?: number;
   riskAt: (point: Vec3) => { fire: number; heat: number; smoke: number; blocked: boolean };
   segmentBlocked: (from: Vec3, to: Vec3) => boolean;
 }
@@ -36,36 +79,29 @@ export function planFireDetour(path: Vec3[], edge: SimEdge, options: DetourOptio
   if (!edgeAllowsDetour(edge) || path.length < 2) return null;
   const start = options.start ?? path[0];
   const goal = path[path.length - 1];
-  const safeSegment = (a: Vec3, b: Vec3) => !options.segmentBlocked(a, b)
-    && segmentInsideWalkway(a, b, path, edge);
+  let grid: WalkwayGrid | undefined;
+  const safeSegment = (a: Vec3, b: Vec3) => {
+    if (options.segmentBlocked(a, b)) return false;
+    const from = grid?.pointIds.get(a), to = grid?.pointIds.get(b);
+    if (!grid || from == null || to == null) return segmentInsideWalkway(a, b, path, edge);
+    const key = Math.min(from, to) * grid.points.length + Math.max(from, to);
+    const cached = grid.links.get(key);
+    if (cached !== undefined) return cached;
+    const clear = segmentInsideWalkway(a, b, path, edge);
+    grid.links.set(key, clear);
+    return clear;
+  };
   const startBlocked = options.riskAt(start).blocked, goalBlocked = options.riskAt(goal).blocked;
   if ((startBlocked && !options.allowStartLanes) || (goalBlocked && !options.allowGoalLanes)) return null;
   if (!startBlocked && !goalBlocked && (options.goalAllowed?.(goal) ?? true) && safeSegment(start, goal)) return [[...start], [...goal]];
 
-  const centers: Vec3[] = [path[0]];
-  for (let i = 1; i < path.length; i += 1) {
-    const a = path[i - 1], b = path[i];
-    const steps = Math.max(1, Math.ceil(distance(a, b) / 0.5));
-    for (let step = 1; step <= steps; step += 1) {
-      const t = step / steps;
-      centers.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]);
-    }
-  }
-  const halfWidth = Math.max(0, walkableHalfWidth(edge) - 0.04);
-  const halfLanes = Math.max(1, Math.ceil(halfWidth / 0.28));
-  const lanes = halfLanes * 2 + 1;
-  const points: Vec3[] = [];
+  grid = walkwayGrid(path, edge);
+  const {centers, lanes, offsets} = grid;
+  const points: Vec3[] = [...grid.points];
   let startRow = 0, startDistance = Infinity;
   centers.forEach((center, row) => {
     const d = distance(center, start);
     if (d < startDistance) { startRow = row; startDistance = d; }
-    const before = centers[Math.max(0, row - 1)], after = centers[Math.min(centers.length - 1, row + 1)];
-    const dx = after[0] - before[0], dz = after[2] - before[2];
-    const length = Math.max(0.001, Math.hypot(dx, dz));
-    for (let lane = 0; lane < lanes; lane += 1) {
-      const offset = (lane - halfLanes) / halfLanes * halfWidth;
-      points.push([center[0] - dz / length * offset, center[1], center[2] + dx / length * offset]);
-    }
   });
   const startId = points.length, goalId = startId + 1;
   points.push([...start], [...goal]);
@@ -77,8 +113,12 @@ export function planFireDetour(path: Vec3[], edge: SimEdge, options: DetourOptio
   const valid = (id: number) => {
     if (!validity[id]) {
       const risk = options.riskAt(points[id]);
-      validity[id] = !risk.blocked && pointInsideWalkableCorridor(points[id], path, edge) ? 1 : -1;
-      penalties[id] = risk.fire * 4 + risk.heat * 2 + risk.smoke * 0.4;
+      if (id < startId && !grid!.validity[id]) grid!.validity[id] = pointInsideWalkableCorridor(points[id], path, edge) ? 1 : -1;
+      const inside = id < startId ? grid!.validity[id] > 0 : pointInsideWalkableCorridor(points[id], path, edge);
+      validity[id] = !risk.blocked && inside ? 1 : -1;
+      const sidePreference = options.lateralPreference == null || id >= offsets.length ? 0
+        : Math.abs(offsets[id] - options.lateralPreference) * 0.035;
+      penalties[id] = risk.fire * 4 + risk.heat * 2 + risk.smoke * 0.4 + sidePreference;
     }
     return validity[id] > 0;
   };
@@ -149,9 +189,9 @@ export function planFireDetour(path: Vec3[], edge: SimEdge, options: DetourOptio
       if (row === centers.length - 1) neighbors.push(goalId);
     }
     for (const next of neighbors) {
-      if (visited[next] || !valid(next) || !safeSegment(points[id], points[next])) continue;
+      if (visited[next] || !valid(next)) continue;
       const nextCost = costs[id] + distance(points[id], points[next]) * (1 + penalties[next]);
-      if (nextCost >= costs[next]) continue;
+      if (nextCost >= costs[next] || !safeSegment(points[id], points[next])) continue;
       costs[next] = nextCost;
       previous[next] = id;
       push({ id: next, score: nextCost + distance(points[next], goal) });

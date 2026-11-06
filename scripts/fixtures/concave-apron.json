@@ -1,0 +1,55 @@
+{
+  "position": [
+    -0.15914534383876222,
+    17.7,
+    0.6847499152521508
+  ],
+  "route": {
+    "nodeIds": [
+      "sim-junction-f6",
+      "sim-corr-blue-f6-b1",
+      "sim-corr-blue-f6-b2",
+      "sim-corr-blue-f6-b3",
+      "sim-corr-blue-f6-b4",
+      "sim-corr-blue-f6-b5",
+      "sim-corr-blue-f6-b6",
+      "sim-stair-right-f6",
+      "sim-stair-right-f5",
+      "sim-stair-right-f4",
+      "sim-stair-right-f3",
+      "sim-stair-right-f2",
+      "sim-stair-right-f1",
+      "sim-stair-exit-door-right",
+      "sim-exit-right",
+      "sim-field-gate-right",
+      "sim-zone-f"
+    ],
+    "edgeIds": [
+      "edge-blue-inner-junction-f6",
+      "edge-blue-corr-f6-1-2",
+      "edge-blue-corr-f6-2-3",
+      "edge-blue-corr-f6-3-4",
+      "edge-blue-corr-f6-4-5",
+      "edge-blue-corr-f6-5-6",
+      "edge-blue-outer-right-stair-f6",
+      "edge-stair-right-6-5",
+      "edge-stair-right-5-4",
+      "edge-stair-right-4-3",
+      "edge-stair-right-3-2",
+      "edge-stair-right-2-1",
+      "edge-right-stair-door",
+      "edge-right-door-exit",
+      "edge-right-field-gate-right",
+      "edge-gate-right-zone-f"
+    ],
+    "distance": 203.64138160244843,
+    "estimatedTime": 197.26736218545352,
+    "risk": 0,
+    "congestion": 1.9181294077847921,
+    "totalCost": 306.0562522084571,
+    "bottleneckCapacity": 2,
+    "goalId": "sim-zone-f"
+  },
+  "arrivalEdgeId": "edge-pink-inner-junction-f6",
+  "arrivalFromNodeId": "sim-corr-pink-f6-b1"
+}

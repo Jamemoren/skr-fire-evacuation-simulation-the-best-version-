@@ -133,10 +133,11 @@ const allocation = allocatePopulation(graph, config, [], 0);
 const assigned = allocation.bundles.reduce((sum, bundle) => sum + bundle.peopleCount, 0);
 if (assigned !== 3000) throw new Error('Population allocation expected 3000, got ' + assigned);
 if (allocation.bundles.some(bundle => !routeIsPhysicallyValid(graph, bundle.path))) throw new Error('Allocator returned a route that leaves a physical door/corridor/stair envelope');
-for (const zone of ['a','b','c','d','e','f']) {
-  const count = allocation.zoneLoads.get('sim-zone-' + zone) || 0;
-  if (count !== 500) throw new Error('Zone ' + zone + ' expected 500, got ' + count);
+for (const goal of graph.nodes.filter(n=>n.type==='assembly')) {
+  const count=allocation.zoneLoads.get(goal.id)||0;
+  if(count<0 || count>goal.capacity)throw new Error('Assembly capacity exceeded: '+goal.id+' '+count+'/'+goal.capacity);
 }
+if(allocation.zoneLoads.size!==9)throw new Error('Expected allocation across both assembly areas and all nine zones');
 
 const baseline = new EvacuationRuntime();
 baseline.start(config);
@@ -221,7 +222,10 @@ const contacts = runtime.getAgentSnapshots().filter(a => pointRisk(a.position, r
 if (contacts > 0) throw new Error('Moving agents inside active fire radius: ' + contacts);
 console.log(JSON.stringify({assigned, zones:Object.fromEntries(allocation.zoneLoads), mixedGenderRooms:gendersByRoom.size, floorIsolation:true, verticalSpreadFloors:[...spreadFloors].sort(), isolatedCasualties:casualtyMetrics.incapacitated, casualtyFloors:[...casualtyFloors], baselineActive:activeBaseline.length, exactActiveOverlaps, locallyAware, directAware, smokeHazardAware, heatHazardAware, reportedAware, smokeAware, smokeSensed, heatAware, heatSensed, lowVisibility, stressed, invalidExterior, invalidRoomExit, incapacitated:fire.incapacitated, groupedCollisionCorrections:groupedMetrics.collisionCorrections, surgeCollisionCorrections:surgeMetrics.collisionCorrections, baselineQueue:base.queueing, fireReroutes:fire.rerouteCount, blockedSafeStops:fire.blocked, smokeExposure:fire.exposedToSmoke, heatExposure:fire.exposedToHeat, collisionCorrections:fire.collisionCorrections, topologyViolations:fire.topologyViolations, peakEdgeDensity:fire.peakEdgeDensity}));
 `);
-  const result = execFileSync("node", [testPath], { cwd: temp, encoding: "utf8", timeout: 180000 }).trim();
+  // The runtime now integrates in fixed 0.1 s physics steps (frame-rate independent), so each
+  // step(1) call below runs 3–4 physics steps instead of one 0.35 s jump. Only the time limit is
+  // raised; no expected value changed.
+  const result = execFileSync("node", [testPath], { cwd: temp, encoding: "utf8", timeout: 900000 }).trim();
   console.log(`Simulation Core QA ผ่าน: ${result}`);
 } catch (error) {
   console.error("Simulation Core QA ไม่ผ่าน");

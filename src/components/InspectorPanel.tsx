@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ANNOTATION_ICONS,
   ANNOTATION_LABELS,
@@ -15,10 +15,11 @@ import type {
 } from "../types";
 import { modelLocalToWorld } from "../utils/coordinates";
 import { formatNumber, formatVec3 } from "../utils/format";
+import { ObjectEditor, ObjectList } from "./ObjectEditor";
 import { ModelPanel } from "./ModelPanel";
 import { ValidationPanel } from "./ValidationPanel";
 
-type PanelTab = "selected" | "list" | "validation" | "model";
+type PanelTab = "selected" | "list" | "validation" | "model" | "objects";
 
 function updateVector(source: Vec3, index: number, value: number): Vec3 {
   const next: Vec3 = [...source];
@@ -146,6 +147,12 @@ function ConnectionEditor({ connection }: { connection: SemanticConnection }) {
   return (
     <div className="form-stack compact-form">
       <div className="panel-heading-row"><div><span className="eyebrow">เส้นเชื่อม</span><h3>{from?.name ?? "?"} → {to?.name ?? "?"}</h3></div></div>
+      <label>Node ต้นทาง<select value={connection.fromId} onChange={(event) => {
+        if (event.target.value !== connection.toId) patch({ fromId: event.target.value });
+      }}>{annotations.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+      <label>Node ปลายทาง<select value={connection.toId} onChange={(event) => {
+        if (event.target.value !== connection.fromId) patch({ toId: event.target.value });
+      }}>{annotations.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
       <label>ประเภท<select value={connection.type} onChange={(event) => patch({ type: event.target.value as ConnectionType })}>
         {(Object.keys(CONNECTION_LABELS) as ConnectionType[]).map((type) => <option key={type} value={type}>{CONNECTION_LABELS[type]}</option>)}
       </select></label>
@@ -246,27 +253,39 @@ export function InspectorPanel() {
   const classrooms = annotations.filter((item) => item.type === "classroom");
   const totalPeople = classrooms.reduce((sum, item) => sum + item.peopleCount, 0);
   const currentHit = inspectedHit ?? targetHit;
+  const selectedObjectId = useMapperStore((state) => state.selectedObjectId);
+  const modelObjects = useMapperStore((state) => state.modelObjects);
+  const objectEdits = useMapperStore((state) => state.objects);
+  const selectedObject = modelObjects.find((item) => item.id === selectedObjectId);
+  useEffect(() => {
+    if (!selectedAnnotationId && !selectedConnectionId && !selectedObjectId) return;
+    setTab((current) => current === "model" || current === "validation" || (current === "objects" && !selectedObjectId) || (current === "list" && selectedObjectId) ? "selected" : current);
+  }, [selectedAnnotationId, selectedConnectionId, selectedObjectId]);
+  const selectionEditor = selectedObjectId ? <ObjectEditor /> : selected ? <AnnotationEditor annotation={selected} /> : selectedConnection ? <ConnectionEditor connection={selectedConnection} /> : null;
 
   return (
     <aside className="right-panel panel">
-      <div className="panel-tabs four-tabs">
+      <div className="editor-inspector-heading"><span className="editor-brand-eyebrow">คุณสมบัติและรายการ</span><h2>{selected?.name ?? (selectedObject ? objectEdits[selectedObject.id]?.name ?? selectedObject.name : selectedConnection ? "เส้นทางที่เลือก" : "จัดการโมเดลของคุณ")}</h2><p>{annotations.length} ตำแหน่ง <span>·</span> {connections.length} เส้นทาง <span>·</span> {modelObjects.length} วัตถุ</p></div>
+      <div className="panel-tabs editor-tabs" aria-label="ส่วนแก้ไขโมเดล">
         <button type="button" className={tab === "selected" ? "is-active" : ""} onClick={() => setTab("selected")}>ข้อมูล</button>
         <button type="button" className={tab === "list" ? "is-active" : ""} onClick={() => setTab("list")}>รายการ</button>
         <button type="button" className={tab === "validation" ? "is-active" : ""} onClick={() => setTab("validation")}>ตรวจสอบ</button>
         <button type="button" className={tab === "model" ? "is-active" : ""} onClick={() => setTab("model")}>โมเดล</button>
+        <button type="button" className={tab === "objects" ? "is-active" : ""} onClick={() => setTab("objects")}>วัตถุ 3D</button>
       </div>
       <div className="right-panel-content">
         {tab === "model" && <ModelPanel />}
         {tab === "validation" && <ValidationPanel />}
-        {tab === "list" && <AnnotationList />}
+        {tab === "list" && <><AnnotationList />{selectionEditor && <div className="editor-list-selection"><h3>แก้ไขรายการที่เลือก</h3>{selectionEditor}</div>}</>}
+        {tab === "objects" && <><ObjectList />{selectedObjectId && <ObjectEditor />}</>}
         {tab === "selected" && (
           <>
-            <div className="population-card">
+            <details className="editor-population-summary"><summary>สรุปประชากร <span>{totalPeople.toLocaleString("th-TH")} คน</span></summary><div className="population-card">
               <div><span>ห้องเรียน</span><strong>{classrooms.length}</strong></div>
               <div><span>คนที่กำหนด</span><strong>{totalPeople.toLocaleString("th-TH")}</strong></div>
               <div className={totalPeople === TARGET_POPULATION ? "is-good" : "is-warning"}><span>ต่างจากเป้าหมาย</span><strong>{Math.abs(TARGET_POPULATION - totalPeople).toLocaleString("th-TH")}</strong></div>
-            </div>
-            {selected ? <AnnotationEditor annotation={selected} /> : selectedConnection ? <ConnectionEditor connection={selectedConnection} /> : (
+            </div></details>
+            {selectionEditor ?? (
               <div className="inspection-block">
                 <h3>ตำแหน่งที่ตรวจพบ</h3>
                 {currentHit ? (
@@ -289,7 +308,7 @@ export function InspectorPanel() {
                     </div>
                   </>
                 ) : (
-                  <div className="empty-state">เลือก “ตรวจวัตถุ” แล้วคลิกโมเดล หรือเข้า โหมดสำรวจ เพื่อเล็งตำแหน่ง</div>
+                  <div className="editor-welcome"><span aria-hidden="true">⌖</span><strong>เริ่มจากเลือกสิ่งที่ต้องการแก้ไข</strong><p>คลิกวัตถุในฉาก หรือเลือกจากแท็บ “รายการ” และ “วัตถุ 3D”</p><ol><li>เลือกวัตถุหรือตำแหน่ง</li><li>ใช้เครื่องมือย้าย หมุน หรือปรับขนาด</li><li>ส่งออกโปรเจกต์เพื่อเก็บงานหรือย้ายเครื่อง</li></ol><button type="button" className="button secondary full" onClick={() => setTab("model")}>ตั้งค่าโมเดลและ Calibration →</button></div>
                 )}
               </div>
             )}

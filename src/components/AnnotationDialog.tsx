@@ -1,4 +1,6 @@
+import { useRef } from "react";
 import { ANNOTATION_LABELS } from "../constants";
+import { useModalFocus } from "./useModalFocus";
 import { useMapperStore } from "../store";
 import type { AnnotationType, Vec3 } from "../types";
 import { formatVec3 } from "../utils/format";
@@ -14,11 +16,13 @@ export function AnnotationDialog() {
   const updateDraft = useMapperStore((state) => state.updateDraft);
   const closeDraft = useMapperStore((state) => state.closeDraft);
   const saveDraft = useMapperStore((state) => state.saveDraft);
+  const dialogRef = useRef<HTMLElement>(null);
+  useModalFocus(dialogRef, Boolean(draft));
   if (!draft) return null;
 
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={closeDraft}>
-      <section className="modal annotation-dialog" role="dialog" aria-modal="true" aria-labelledby="annotation-title" onMouseDown={(event) => event.stopPropagation()}>
+      <section ref={dialogRef} tabIndex={-1} className="modal annotation-dialog" role="dialog" aria-modal="true" aria-labelledby="annotation-title" onMouseDown={(event) => event.stopPropagation()}>
         <div className="modal-header">
           <div>
             <span className="eyebrow">MODEL-LOCAL {formatVec3(draft.hit.position, 3)}</span>

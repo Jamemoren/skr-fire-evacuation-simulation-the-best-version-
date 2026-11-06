@@ -46,7 +46,7 @@ for (const id of graphNodeIds) if (!staticIds.has(id)) throw new Error('static s
 for (const id of graphEdgeIds) if (!staticEdgeIds.has(id)) throw new Error('static semantic map missing graph edge ' + id);
 const classrooms = staticMap.annotations.filter(item => item.type === 'classroom');
 const people = classrooms.reduce((sum,item) => sum + Number(item.peopleCount || 0), 0);
-if (classrooms.length !== 96 || people !== 3000) throw new Error('semantic population mismatch: ' + classrooms.length + ' rooms / ' + people + ' people');
+if (classrooms.length !== 144 || people !== 3000) throw new Error('semantic population mismatch: ' + classrooms.length + ' rooms / ' + people + ' people');
 const byId = new Map(staticMap.annotations.map(item => [item.id, item]));
 for (const edge of staticMap.connections) {
   const from = byId.get(edge.fromId), to = byId.get(edge.toId);

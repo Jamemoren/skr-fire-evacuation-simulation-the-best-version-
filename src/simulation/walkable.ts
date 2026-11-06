@@ -1,12 +1,20 @@
-import { BLUE_END_TOWER_CENTER, PINK_END_TOWER_CENTER, CORE_LIFT_X, CORE_LIFT_Z, CORE_LIFT_SIZE, STAIR_ZONE_CENTERS, STAIR_FLOOR_OPENING_SIZE, CENTRAL_STAIR_FLOOR_OPENING_SIZE, STAIR_ACCESS_MIN_Z, type StairZone } from "../building1/building1Data";
+import { CLASSROOMS, BLUE_END_TOWER_CENTER, PINK_END_TOWER_CENTER, CORE_LIFT_X, CORE_LIFT_Z, CORE_LIFT_SIZE, STAIR_ZONE_CENTERS, STAIR_FLOOR_OPENING_SIZE, CENTRAL_STAIR_FLOOR_OPENING_SIZE, STAIR_ACCESS_MIN_Z, type StairZone } from "../building1/building1Data";
 import type { SimEdge, Vec3 } from "./types";
+import { SHRINE_CENTER, SHRINE_CLEARANCE_RADIUS, CAMPUS_AMENITIES, SITE_BOUNDARY, SITE_LAYOUT } from "../building1/siteLayout";
 
 const EPS = 1e-6;
+const doorConnectorRooms = new Map(CLASSROOMS.map(room => [`edge-door-corr-${room.id}`, room]));
 
 export const PEDESTRIAN_RADIUS = 0.18;
 
 export function walkableHalfWidth(edge: SimEdge): number {
-  const shoulder = edge.kind === "outdoor" ? 3 : edge.kind === "assembly" ? 2.5 : 0;
+  // This connector starts at a real door, then opens into the 3.2 m gallery.
+  // The facade/portal guard below keeps the opening narrow while allowing a side exit.
+  if (edge.id.startsWith("edge-door-corr-")) return 1.42;
+  // Campus assembly links cross the open concrete plaza. Their width describes a flow
+  // estimate, not two physical walls. Keep the short exit throats and indoor galleries narrow.
+  const shoulder = edge.kind === "assembly" && !edge.insideBuilding ? (edge.id.startsWith("campus-") ? 3.5 : 2.5)
+    : !edge.id.startsWith("campus-") && edge.kind === "outdoor" ? 3 : 0;
   const width = Math.max(0.32, edge.width * 0.5 - PEDESTRIAN_RADIUS + shoulder);
   return edge.kind === "stair" ? Math.min(0.62, width) : width;
 }
@@ -42,8 +50,23 @@ function insideFootprint(point: Vec3, center: Vec3, width: number, depth: number
 
 /** Exterior pedestrians may never occupy the solid footprint of either end tower. */
 export function pointClearsExteriorBuilding(point: Vec3): boolean {
-  return !insideFootprint(point, PINK_END_TOWER_CENTER, 8.5, 15)
+  return Math.hypot(point[0]-SHRINE_CENTER[0],point[2]-SHRINE_CENTER[2])>=SHRINE_CLEARANCE_RADIUS
+    && CAMPUS_AMENITIES.every(a=>Math.abs(point[0]-a.x)>=a.width/2+PEDESTRIAN_RADIUS || Math.abs(point[2]-a.z)>=a.depth/2+PEDESTRIAN_RADIUS)
+    && !insideFootprint(point, PINK_END_TOWER_CENTER, 8.5, 15)
     && !insideFootprint(point, BLUE_END_TOWER_CENTER, 15, 8.5);
+}
+
+/** Wide local bypasses remain inside the campus and outside solid building footprints. */
+function pointInsideCampusGround(point: Vec3): boolean {
+  const [x, , z] = point;
+  let inside = false;
+  for (let i = 0, j = SITE_BOUNDARY.length - 1; i < SITE_BOUNDARY.length; j = i++) {
+    const [ax, az] = SITE_BOUNDARY[i], [bx, bz] = SITE_BOUNDARY[j];
+    if ((az > z) !== (bz > z) && x < (bx - ax) * (z - az) / (bz - az) + ax) inside = !inside;
+  }
+  if (!inside) return false;
+  return [SITE_LAYOUT.buildingX[3], SITE_LAYOUT.buildingX[4]].every(centerX =>
+    !insideFootprint(point, [centerX, 0, -43], 78.4, 16.6));
 }
 
 /** The lift bank is a solid obstacle; the open connector runs in front of it. */
@@ -75,7 +98,23 @@ export function pointClearsStairVoid(point: Vec3): boolean {
  */
 export function pointInsideWalkableCorridor(point: Vec3, path: Vec3[], edge: SimEdge): boolean {
   if (path.length < 2) return false;
-  const exteriorTransition = edge.kind === "outdoor" || (edge.kind === "exit" && !edge.insideBuilding);
+  if (edge.id.startsWith("edge-door-corr-")) {
+    const room = doorConnectorRooms.get(edge.id);
+    if (!room) return false;
+    const [x, , z] = point;
+    // A doorway is still a doorway: lateral bypass starts only after clearing its jambs.
+    // This avoids treating a fire near the corridor's graph-node centre as a sealed door.
+    if (room.side === "pink") {
+      const doorX = room.position[0] - 2.25;
+      if (z < 0.30 && Math.abs(x - doorX) > 0.42) return false;
+      if (z >= 0.30 && (z > 3.48 - PEDESTRIAN_RADIUS || x < -52 || x > -4)) return false;
+    } else {
+      const doorZ = room.position[2] - 2.25;
+      if (x > -0.30 && Math.abs(z - doorZ) > 0.42) return false;
+      if (x <= -0.30 && (x < -3.48 + PEDESTRIAN_RADIUS || z < 4 || z > 52)) return false;
+    }
+  }
+  const exteriorTransition = edge.kind === "outdoor" || edge.kind === "assembly" || (edge.kind === "exit" && !edge.insideBuilding);
   if (edge.insideBuilding && edge.kind !== "room" && !pointClearsCentralLiftBank(point)) return false;
   if (edge.insideBuilding && edge.kind !== "stair" && !pointClearsStairVoid(point)) return false;
   let best = Infinity;
@@ -94,6 +133,7 @@ export function pointInsideWalkableCorridor(point: Vec3, path: Vec3[], edge: Sim
   // not receive this exception and can never pass through a building footprint.
   const insideVerifiedExitThroat = edge.kind === "exit" && !edge.insideBuilding && best <= tolerance + 0.025;
   if (exteriorTransition && !pointClearsExteriorBuilding(point) && !insideVerifiedExitThroat) return false;
+  if (exteriorTransition && !pointInsideCampusGround(point)) return false;
   return best <= tolerance + 0.025;
 }
 

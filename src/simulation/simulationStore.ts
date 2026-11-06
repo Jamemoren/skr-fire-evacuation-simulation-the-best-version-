@@ -3,7 +3,7 @@ import { TARGET_POPULATION } from "../building1/building1Data";
 import { evacuationRuntime } from "./runtime";
 import { normalizeStudentPopulation } from "./studentPlacement";
 import { finiteBetween } from "../utils/numbers";
-import type { CrowdBehavior, FireSource, RoutingPreset, SimulationConfig, SimulationEvent, SimulationMetrics, SimulationStatus, Vec3 } from "./types";
+import type { CrowdBehavior, DecisionMode, FireSource, RoutingPreset, SimulationConfig, SimulationEvent, SimulationMetrics, SimulationStatus, Vec3 } from "./types";
 
 export type WorkMode = "simulation" | "editor";
 
@@ -70,10 +70,11 @@ if (evacuationRuntime.fires.length === 0) {
 const EMPTY_METRICS: SimulationMetrics = {
   total: 0, arrived: 0, waiting: 0, evacuating: 0, queueing: 0, rerouting: 0, blocked: 0, incapacitated: 0,
   exposedToSmoke: 0, smokeAware: 0, heatAware: 0, exposedToHeat: 0, progress: 0, elapsed: 0, firstArrival: null, p50Arrival: null, p90Arrival: null, p95Arrival: null,
-  finalArrival: null, averageArrival: null, rerouteCount: 0, thermalRerouteCount: 0, estimatedMakespan: 0, maxModeledTemperatureC: 29, blockedThermalEdges: 0, fireBlockedEdges: 0, smokeAffectedEdges: 0, maxQueue: 0, averageQueue: 0, bottlenecks: [],
+  finalArrival: null, averageArrival: null, rerouteCount: 0, thermalRerouteCount: 0, stuckReasons: [], rerouteReasons: [], estimatedMakespan: 0, maxModeledTemperatureC: 29, blockedThermalEdges: 0, fireBlockedEdges: 0, smokeAffectedEdges: 0, maxQueue: 0, averageQueue: 0, bottlenecks: [],
   indoorAgents: 0, stairAgents: 0, outdoorAgents: 0, topologyViolations: 0, collisionCorrections: 0, peakEdgeDensity: 0,
   floorPopulation: Array.from({ length: 10 }, () => 0),
-  wingPopulation: { pink: 0, blue: 0, core: 0, ground: 0, outdoor: 0, assembly: 0 },
+  wingPopulation: { pink: 0, blue: 0, core: 0, ground: 0, outdoor: 0, assembly: 0, "building-3":0, "building-4":0 },
+  holding: 0, unaware: 0, closedPassages: 0, staleQueueRepairs: 0, squeezeEvents: 0, clogEvents: 0, cloggedSeconds: 0, phoneFollowed: 0, phoneIgnored: 0, peakMouthDensity: 0, dangerousCrowdSeconds: 0, competitiveness: 0, stateInconsistencies: 0, decisionMode: "occupant", seed: 1,
 };
 
 interface EvacuationState {
@@ -99,6 +100,14 @@ interface EvacuationState {
   hardBlockTemperatureC: number;
   thermalLookAheadEdges: number;
   thermalWeight: number;
+  /** Whose information drives route choice (occupants themselves vs. a controller). */
+  decisionMode: DecisionMode;
+  /** Seed for personal traits; the same seed and scenario reproduce the same run. */
+  seed: number;
+  /** Closed passage groups (world truth); occupants only learn them by seeing/being told. */
+  closedPassages: string[];
+  /** Agent shown in the decision inspector (null = none). */
+  inspectedAgentId: number | null;
   metrics: SimulationMetrics;
   fires: FireSource[];
   events: SimulationEvent[];
@@ -120,6 +129,10 @@ interface EvacuationState {
   setShowHeatZones: (value: boolean) => void;
   setFireSpreadEnabled: (value: boolean) => void;
   setThermalModel: (patch: Partial<Pick<EvacuationState, "ambientTemperatureC" | "heatAvoidThresholdC" | "hardBlockTemperatureC" | "thermalLookAheadEdges" | "thermalWeight">>) => void;
+  setDecisionMode: (mode: DecisionMode) => void;
+  setSeed: (seed: number) => void;
+  setPassageClosed: (groupId: string, closed: boolean) => void;
+  setInspectedAgentId: (id: number | null) => void;
   start: () => void;
   pause: () => void;
   resume: () => void;
@@ -159,12 +172,19 @@ export const useEvacuationStore = create<EvacuationState>((set, get) => ({
   hardBlockTemperatureC: 62,
   thermalLookAheadEdges: 10,
   thermalWeight: 2400,
+  decisionMode: "occupant",
+  seed: 1,
+  closedPassages: evacuationRuntime.passageGroups().filter((group) => group.closed).map((group) => group.id),
+  inspectedAgentId: null,
   metrics: EMPTY_METRICS,
   fires: [...evacuationRuntime.fires],
   events: [...evacuationRuntime.events],
   snapshotToken: 0,
   renderFps: 0,
-  setWorkMode: (workMode) => set({ workMode }),
+  setWorkMode: (workMode) => {
+    if (workMode === "editor" && get().status === "running") get().pause();
+    set({ workMode });
+  },
   setSpeedFactor: (speedFactor) => set((state) => ({ speedFactor: finiteBetween(speedFactor, state.speedFactor, .25, 50) })),
   setPopulationTarget: (populationTarget) => set((state) => state.status === "running" || state.status === "paused"
     ? state : { populationTarget: normalizeStudentPopulation(populationTarget) }),
@@ -196,6 +216,18 @@ export const useEvacuationStore = create<EvacuationState>((set, get) => ({
     const thermalWeight = finiteBetween(patch.thermalWeight, state.thermalWeight, 0, 20000);
     return { ambientTemperatureC, heatAvoidThresholdC, hardBlockTemperatureC, thermalLookAheadEdges, thermalWeight };
   }),
+  setDecisionMode: (decisionMode) => set((state) => state.status === "running" || state.status === "paused" ? state : { decisionMode: decisionMode === "coordinated" ? "coordinated" : "occupant" }),
+  setSeed: (seed) => set((state) => state.status === "running" || state.status === "paused" || !Number.isFinite(seed)
+    ? state : { seed: Math.abs(Math.floor(seed)) % 4294967296 }),
+  setPassageClosed: (groupId, closed) => {
+    evacuationRuntime.setPassageGroupClosed(groupId, closed);
+    set({
+      closedPassages: evacuationRuntime.passageGroups().filter((group) => group.closed).map((group) => group.id),
+      events: [...evacuationRuntime.events],
+      snapshotToken: get().snapshotToken + 1,
+    });
+  },
+  setInspectedAgentId: (inspectedAgentId) => set({ inspectedAgentId: inspectedAgentId != null && Number.isFinite(inspectedAgentId) ? Math.max(0, Math.floor(inspectedAgentId)) : null }),
   start: () => {
     const state = get();
     if (state.status === "running" || state.status === "paused") return;
@@ -213,6 +245,8 @@ export const useEvacuationStore = create<EvacuationState>((set, get) => ({
       hardBlockTemperatureC: state.hardBlockTemperatureC,
       thermalLookAheadEdges: state.thermalLookAheadEdges,
       thermalWeight: state.thermalWeight,
+      decisionMode: state.decisionMode,
+      seed: state.seed,
     };
     evacuationRuntime.start(config);
     set({ status: "running", metrics: evacuationRuntime.getMetrics(), fires: [...evacuationRuntime.fires], events: [...evacuationRuntime.events], snapshotToken: get().snapshotToken + 1, placeFireMode: false });

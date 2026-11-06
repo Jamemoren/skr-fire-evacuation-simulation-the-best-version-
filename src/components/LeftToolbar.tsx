@@ -57,13 +57,14 @@ export function LeftToolbar() {
   return (
     <aside className="left-toolbar panel">
       <section>
-        <div className="section-heading"><h2>เครื่องมือ</h2><button type="button" onClick={() => setShowShortcuts(true)}>⌨</button></div>
+        <div className="section-heading"><h2>เครื่องมือ</h2><button type="button" onClick={() => setShowShortcuts(true)} aria-label="แสดงคีย์ลัด">⌨</button></div>
         <div className="tool-list">
           {toolButtons.map((tool) => (
             <button
               key={tool.mode}
               type="button"
               className={`tool-button${toolMode === tool.mode ? " is-active" : ""}`}
+              aria-pressed={toolMode === tool.mode}
               onClick={() => setToolMode(tool.mode)}
               title={tool.hint}
             >
@@ -82,6 +83,7 @@ export function LeftToolbar() {
               key={type}
               type="button"
               className={placementType === type && toolMode === "annotate" ? "is-active" : ""}
+              aria-pressed={placementType === type && toolMode === "annotate"}
               onClick={() => setPlacementType(type)}
               title={ANNOTATION_LABELS[type]}
             >
@@ -100,6 +102,7 @@ export function LeftToolbar() {
               key={item.mode}
               type="button"
               className={cameraMode === item.mode ? "is-active" : ""}
+              aria-pressed={cameraMode === item.mode}
               onClick={() => setCameraMode(item.mode)}
             >
               {item.label}

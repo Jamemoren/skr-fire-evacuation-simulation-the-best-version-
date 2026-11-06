@@ -1,6 +1,8 @@
+import type { AgentBehaviorState, AwarenessSource, DecisionReasonCode } from "./agentReasons";
+
 export type Vec3 = [number, number, number];
 
-export type AgentWing = "pink" | "blue" | "core" | "ground" | "outdoor" | "assembly";
+export type AgentWing = "pink" | "blue" | "core" | "ground" | "outdoor" | "assembly" | "building-3" | "building-4";
 export type AgentPhase = "room" | "corridor" | "stair" | "ground" | "outdoor" | "assembly";
 
 export type SimNodeType = "room" | "door" | "corridor" | "junction" | "stair" | "exit" | "gate" | "assembly";
@@ -8,6 +10,11 @@ export type SimEdgeKind = "room" | "corridor" | "junction" | "stair" | "exit" | 
 export type SimulationStatus = "idle" | "running" | "paused" | "completed";
 export type RoutingPreset = "fastest" | "balanced" | "safest";
 export type CrowdBehavior = "orderly" | "grouped" | "surge";
+/**
+ * occupant: each person decides from what they personally perceive or are told (default).
+ * coordinated: a controller with whole-building information assigns and updates routes.
+ */
+export type DecisionMode = "occupant" | "coordinated";
 export type AgentStatus = "waiting" | "evacuating" | "queueing" | "rerouting" | "arrived" | "blocked" | "incapacitated";
 export type StudentGender = "male" | "female";
 export type HazardAwareness = "none" | "reported" | "smoke" | "heat" | "direct";
@@ -114,6 +121,10 @@ export interface SimulationConfig {
   hardBlockTemperatureC?: number;
   thermalLookAheadEdges?: number;
   thermalWeight?: number;
+  /** Seed for per-person traits and decision phases (same seed + scenario ⇒ same run). */
+  seed?: number;
+  /** Whose information drives route choice. Defaults to "occupant". */
+  decisionMode?: DecisionMode;
 }
 
 export interface AgentPublicSnapshot {
@@ -145,6 +156,10 @@ export interface AgentPublicSnapshot {
   incapacitatedAt: number | null;
   hasPassedRoomDoor: boolean;
   hasExitedBuilding: boolean;
+  behavior: AgentBehaviorState;
+  awareness: AwarenessSource;
+  reasonCode: DecisionReasonCode;
+  routeSwitches: number;
 }
 
 export interface BottleneckMetric {
@@ -162,6 +177,13 @@ export interface SimulationEvent {
   severity: "info" | "warning" | "danger" | "success";
   title: string;
   detail: string;
+}
+
+/** How many people share one reason (results screen: why people are stuck / why they switched). */
+export interface ReasonCount {
+  code: string;
+  label: string;
+  count: number;
 }
 
 export interface SimulationMetrics {
@@ -187,6 +209,10 @@ export interface SimulationMetrics {
   averageArrival: number | null;
   rerouteCount: number;
   thermalRerouteCount: number;
+  /** People who cannot proceed right now (holding), grouped by the reason they show. */
+  stuckReasons: ReasonCount[];
+  /** Route changes so far, grouped by why the person switched. */
+  rerouteReasons: ReasonCount[];
   estimatedMakespan: number;
   maxModeledTemperatureC: number;
   blockedThermalEdges: number;
@@ -203,4 +229,31 @@ export interface SimulationMetrics {
   peakEdgeDensity: number;
   floorPopulation: number[];
   wingPopulation: Record<AgentWing, number>;
+  /** People who are aware but cannot currently find a usable route (holding / no route). */
+  holding: number;
+  /** People who have not yet perceived the emergency. */
+  unaware: number;
+  /** Passages closed in the scenario (world truth). */
+  closedPassages: number;
+  /** Queue/reservation entries that had to be repaired (must stay 0). */
+  staleQueueRepairs: number;
+  /** Times somebody squeezed past another line after standing still ≥ 10 s (deadlock safety net). */
+  squeezeEvents: number;
+  /** Times an opening jammed (an arch of people pressed in the doorway) in a competitive crowd. */
+  clogEvents: number;
+  /** Total seconds openings were jammed. */
+  cloggedSeconds: number;
+  /** Highest crowd density measured at an opening mouth (people/m²). */
+  peakMouthDensity: number;
+  /** Seconds (summed over openings) with ≥ 6 people/m² at an opening — crush/fall risk. */
+  dangerousCrowdSeconds: number;
+  /** Simulator A: route changes people took from their phone / phone routes they ignored. */
+  phoneFollowed: number;
+  phoneIgnored: number;
+  /** 0 = orderly drill (people line up), 0.55 real-life crowding, 0.9 surge. */
+  competitiveness: number;
+  /** Agents whose public state contradicts itself (must stay 0). */
+  stateInconsistencies: number;
+  decisionMode: DecisionMode;
+  seed: number;
 }

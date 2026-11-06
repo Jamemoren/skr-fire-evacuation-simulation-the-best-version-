@@ -6,10 +6,10 @@ type TreeSpec = [x: number, z: number, scale: number, hue: number];
 const TREE_SPECS: TreeSpec[] = [
   [-66, -16, 1.15, 0], [-55, -18, 0.9, 1], [-43, -17, 1.05, 2], [-30, -18, 0.82, 0], [-17, -19, 1.08, 1],
   [16, -15, 0.92, 2], [27, -9, 1.12, 0], [34, 3, 0.86, 1], [38, 17, 1.08, 2], [41, 34, 0.96, 0],
-  [-69, 3, 0.86, 1], [-70, 19, 1.14, 2], [-69, 36, 0.94, 0], [-67, 52, 1.1, 1],
-  [-61, 67, 0.92, 2], [-60, 83, 1.04, 0], [-60, 101, 0.9, 1], [-58, 119, 1.12, 2],
-  [-48, 130, 0.96, 0], [-31, 133, 1.16, 1], [-12, 134, 0.9, 2], [8, 134, 1.06, 0], [27, 132, 0.93, 1], [47, 127, 1.12, 2],
-  [56, 113, 0.88, 0], [57, 94, 1.08, 1], [56, 76, 0.96, 2], [54, 59, 1.12, 0],
+  [-88, -5, 0.86, 1], [-78, -5, 1.0, 2], [-68, -5, 0.94, 0],
+  [-31, 82, .72, 2], [-31, 106, .76, 0], [-31, 134, .7, 1], [-31, 159, .78, 2],
+  [-21, 174, .8, 1], [0, 174, .76, 2], [21, 174, .82, 0],
+  [58, 82, .9, 0],
   [30, 55, 0.76, 1], [20, 56, 0.82, 2], [-46, 55, 0.8, 0], [-56, 47, 0.76, 1],
 ];
 
@@ -65,7 +65,7 @@ function InstancedTrees() {
   );
 }
 
-function CampusLamp({ position, rotation = 0 }: { position: [number, number, number]; rotation?: number }) {
+export function CampusLamp({ position, rotation = 0 }: { position: [number, number, number]; rotation?: number }) {
   return (
     <group position={position} rotation={[0, rotation, 0]}>
       <mesh position={[0, 2.8, 0]} castShadow>
@@ -87,11 +87,6 @@ function CampusLamp({ position, rotation = 0 }: { position: [number, number, num
 export function CampusLandscape() {
   return (
     <group name="CAMPUS_LANDSCAPE">
-      <mesh name="CAMPUS_GRASS_BASE" position={[-4, -0.3, 57]} receiveShadow>
-        <boxGeometry args={[132, 0.6, 162]} />
-        <meshStandardMaterial color="#5b965b" roughness={1} />
-      </mesh>
-
       <mesh name="EVACUATION_PROMENADE" position={[-8.5, 0.06, 38]} receiveShadow>
         <boxGeometry args={[6.8, 0.1, 48]} />
         <meshStandardMaterial color="#c8c5bb" roughness={0.88} />
@@ -108,12 +103,12 @@ export function CampusLandscape() {
         </mesh>
       ))}
 
-      <mesh name="CAMPUS_ACCESS_ROAD" position={[31.5, 0.045, 49]} receiveShadow>
-        <boxGeometry args={[9, 0.08, 112]} />
+      <mesh name="CAMPUS_ACCESS_ROAD" position={[31.5, 0.045, 83]} receiveShadow>
+        <boxGeometry args={[9, 0.08, 180]} />
         <meshStandardMaterial color="#687176" roughness={0.95} />
       </mesh>
-      <mesh name="ROAD_CENTER_LINE" position={[31.5, 0.094, 49]} receiveShadow>
-        <boxGeometry args={[0.12, 0.016, 108]} />
+      <mesh name="ROAD_CENTER_LINE" position={[31.5, 0.094, 83]} receiveShadow>
+        <boxGeometry args={[0.12, 0.016, 176]} />
         <meshStandardMaterial color="#f1d65d" roughness={0.72} />
       </mesh>
 

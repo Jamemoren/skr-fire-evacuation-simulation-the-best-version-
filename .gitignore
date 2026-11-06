@@ -2,3 +2,8 @@ node_modules
 dist
 *.local
 .DS_Store
+
+# mobile guidance backend (runtime data, compiled server, QA output)
+.evac-data
+.server-build
+qa-output

@@ -1,0 +1,221 @@
+{
+  "time": 1080.0000000001132,
+  "agent": {
+    "id": 331,
+    "roomId": "b1-f7-blue-2",
+    "floor": 6,
+    "wing": "core",
+    "phase": "stair",
+    "position": [
+      2.015835733769496,
+      19.52,
+      -2.176313479872337
+    ],
+    "status": "evacuating",
+    "speed": 0.9709628585491328,
+    "route": {
+      "nodeIds": [
+        "b1-f7-blue-2",
+        "sim-door-b1-f7-blue-2",
+        "sim-corr-blue-f7-b2",
+        "sim-corr-blue-f7-b1",
+        "sim-junction-f7",
+        "sim-stair-center-f7",
+        "sim-stair-center-f6",
+        "sim-stair-center-f5",
+        "sim-stair-center-f4",
+        "sim-stair-center-f3",
+        "sim-stair-center-f2",
+        "sim-stair-center-f1",
+        "sim-stair-exit-door-center",
+        "sim-exit-center",
+        "sim-field-gate",
+        "sim-zone-f"
+      ],
+      "edgeIds": [
+        "edge-room-door-b1-f7-blue-2",
+        "edge-door-corr-b1-f7-blue-2",
+        "edge-blue-corr-f7-1-2",
+        "edge-blue-inner-junction-f7",
+        "edge-junction-center-stair-f7",
+        "edge-stair-center-7-6",
+        "edge-stair-center-6-5",
+        "edge-stair-center-5-4",
+        "edge-stair-center-4-3",
+        "edge-stair-center-3-2",
+        "edge-stair-center-2-1",
+        "edge-center-stair-door",
+        "edge-center-door-exit",
+        "edge-center-field-gate",
+        "edge-gate-zone-f"
+      ],
+      "distance": 212.75218528889314,
+      "estimatedTime": 211.18368180010887,
+      "risk": 0,
+      "congestion": 0,
+      "totalCost": 211.18368180010887,
+      "bottleneckCapacity": 1.8,
+      "goalId": "sim-zone-f"
+    },
+    "edgeIndex": 5,
+    "edgeEntered": true,
+    "edgePath": [
+      [
+        2.924922034749688,
+        21.2,
+        2.2929620979309386
+      ],
+      [
+        4.114,
+        21.2,
+        1.05
+      ],
+      [
+        4.114,
+        21.24,
+        0.5000000000000002
+      ],
+      [
+        4.114,
+        21.02125,
+        0.17999999999999994
+      ],
+      [
+        4.114,
+        20.8025,
+        -0.1399999999999999
+      ],
+      [
+        4.114,
+        20.58375,
+        -0.45999999999999996
+      ],
+      [
+        4.114,
+        20.365,
+        -0.78
+      ],
+      [
+        4.114,
+        20.14625,
+        -1.1
+      ],
+      [
+        4.114,
+        19.9275,
+        -1.42
+      ],
+      [
+        4.114,
+        19.70875,
+        -1.74
+      ],
+      [
+        2.75,
+        19.52,
+        -2.35
+      ],
+      [
+        1.386,
+        19.52,
+        -2.35
+      ],
+      [
+        1.386,
+        19.49,
+        -1.4400000000000002
+      ],
+      [
+        1.386,
+        19.27125,
+        -1.1199999999999999
+      ],
+      [
+        1.386,
+        19.0525,
+        -0.8
+      ],
+      [
+        1.386,
+        18.83375,
+        -0.48
+      ],
+      [
+        1.386,
+        18.615,
+        -0.15999999999999992
+      ],
+      [
+        1.386,
+        18.39625,
+        0.16000000000000003
+      ],
+      [
+        1.386,
+        18.1775,
+        0.48
+      ],
+      [
+        1.386,
+        17.95875,
+        0.8
+      ],
+      [
+        1.386,
+        17.7,
+        1.05
+      ],
+      [
+        2.75,
+        17.7,
+        1.7999999999999998
+      ]
+    ],
+    "segmentIndex": 10,
+    "segmentProgress": 0.873293001315218,
+    "approachEdge": {
+      "id": "edge-junction-center-stair-f7",
+      "from": "sim-junction-f7",
+      "to": "sim-stair-center-f7",
+      "kind": "junction",
+      "width": 3.2,
+      "capacityPerSecond": 7.2,
+      "speedMultiplier": 0.9,
+      "twoWay": true,
+      "insideBuilding": true,
+      "waypoints": [
+        [
+          1.2,
+          21.2,
+          2.35
+        ]
+      ],
+      "distance": 2.134688420339853,
+      "floorFrom": 7,
+      "floorTo": 7
+    },
+    "approachPath": [
+      [
+        1.2,
+        21.2,
+        1.86
+      ],
+      [
+        1.2,
+        21.2,
+        2.35
+      ],
+      [
+        2.75,
+        21.2,
+        1.7999999999999998
+      ]
+    ],
+    "approachSegments": 0,
+    "arrivalEdgeId": "edge-junction-center-stair-f7",
+    "arrivalFromNodeId": "sim-junction-f7",
+    "bodyLateralOffset": -0.3,
+    "hasPassedRoomDoor": true,
+    "hasExitedBuilding": false
+  }
+}

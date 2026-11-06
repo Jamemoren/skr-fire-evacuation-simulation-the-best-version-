@@ -26,12 +26,14 @@ export function AnnotationLayer() {
         return (
           <group
             key={annotation.id}
+            name={`annotation:${annotation.id}`}
             position={annotation.position}
             rotation={annotation.rotation}
             userData={{ semanticOverlay: true, annotationId: annotation.id }}
             onClick={(event) => {
               event.stopPropagation();
-              handleAnnotationClick(annotation.id);
+              const state = useMapperStore.getState();
+              if (!state.transformDragging && Date.now() - state.lastTransformAt >= 250) handleAnnotationClick(annotation.id);
             }}
           >
             {annotation.shape === "box" ? (
@@ -40,10 +42,10 @@ export function AnnotationLayer() {
                   <boxGeometry args={[1, 1, 1]} />
                   <meshBasicMaterial
                     color={color}
-                    wireframe
+                    wireframe={annotation.type !== "custom"}
                     transparent
                     opacity={selected || connecting ? 1 : annotation.locked ? 0.45 : 0.72}
-                    depthTest={false}
+                    depthTest={annotation.type === "custom"}
                   />
                 </mesh>
                 {selected && (
@@ -83,7 +85,8 @@ export function AnnotationLayer() {
                   type="button"
                   onClick={(event) => {
                     event.stopPropagation();
-                    handleAnnotationClick(annotation.id);
+                    const state = useMapperStore.getState();
+              if (!state.transformDragging && Date.now() - state.lastTransformAt >= 250) handleAnnotationClick(annotation.id);
                   }}
                 >
                   <b>{ANNOTATION_ICONS[annotation.type]}</b>

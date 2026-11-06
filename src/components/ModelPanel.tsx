@@ -1,12 +1,10 @@
 import { useMemo, useRef, useState } from "react";
+import { importWorkspaceFile, openSampleWorkspace } from "../utils/projectFiles";
 import { DEFAULT_MODEL_PATH } from "../constants";
-import { DIGITAL_MODEL_NAME_TH } from "../projectIdentity";
 import { useMapperStore } from "../store";
 import type { Vec3 } from "../types";
 import { downloadJson } from "../utils/download";
 import { formatBytes, formatNumber, formatVec3 } from "../utils/format";
-import { sha256File } from "../utils/hash";
-import { clearModelFile, saveModelFile } from "../utils/idb";
 
 function updateVector(source: Vec3, index: number, value: number): Vec3 {
   const next: Vec3 = [...source];
@@ -16,7 +14,7 @@ function updateVector(source: Vec3, index: number, value: number): Vec3 {
 
 export function ModelPanel() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [busy, setBusy] = useState(false);
+  const busy = useMapperStore((state) => state.projectBusy);
   const [objectQuery, setObjectQuery] = useState("");
   const project = useMapperStore((state) => state.project);
   const patchProject = useMapperStore((state) => state.patchProject);
@@ -26,11 +24,6 @@ export function ModelPanel() {
   const modelError = useMapperStore((state) => state.modelError);
   const calibration = useMapperStore((state) => state.calibration);
   const modelOpacity = useMapperStore((state) => state.modelOpacity);
-  const setModelUrl = useMapperStore((state) => state.setModelUrl);
-  const setModelSource = useMapperStore((state) => state.setModelSource);
-  const setModelReport = useMapperStore((state) => state.setModelReport);
-  const setModelLoading = useMapperStore((state) => state.setModelLoading);
-  const setModelError = useMapperStore((state) => state.setModelError);
   const setCalibration = useMapperStore((state) => state.setCalibration);
   const setModelOpacity = useMapperStore((state) => state.setModelOpacity);
   const requestCameraFocus = useMapperStore((state) => state.requestCameraFocus);
@@ -45,78 +38,22 @@ export function ModelPanel() {
       .slice(0, 120);
   }, [modelReport, objectQuery]);
 
-  const replaceUrl = (url: string | null) => {
-    const previous = useMapperStore.getState().modelUrl;
-    if (previous?.startsWith("blob:")) URL.revokeObjectURL(previous);
-    setModelUrl(url);
-  };
-
   const onModelFile = async (file: File | undefined) => {
     if (!file) return;
-    if (!file.name.toLowerCase().endsWith(".glb")) {
-      addToast("error", "กรุณาเลือกไฟล์ .glb");
-      return;
-    }
-    setBusy(true);
-    setModelLoading(true);
-    setModelError(null);
-    try {
-      const sha256 = await sha256File(file);
-      let persisted = true;
-      try {
-        await saveModelFile(file, sha256);
-      } catch {
-        persisted = false;
-      }
-      replaceUrl(URL.createObjectURL(file));
-      setModelSource({ name: file.name, size: file.size, sha256, source: "uploaded" });
-      setModelReport(null);
-      addToast(
-        persisted ? "success" : "warning",
-        persisted
-          ? "นำเข้า GLB และบันทึกไว้ในเบราว์เซอร์แล้ว"
-          : "นำเข้า GLB แล้ว แต่ไฟล์ใหญ่เกินกว่าจะจำไว้หลังปิดหน้าเว็บ",
-      );
-    } catch (error) {
-      setModelLoading(false);
-      addToast("error", error instanceof Error ? error.message : "นำเข้า GLB ไม่สำเร็จ");
-    } finally {
-      setBusy(false);
-    }
+    try { await importWorkspaceFile(file); }
+    catch (error) { addToast("error", error instanceof Error ? error.message : "นำเข้าโมเดลไม่สำเร็จ"); }
   };
-
   const usePublicModel = async () => {
-    setBusy(true);
-    setModelLoading(true);
-    setModelError(null);
     try {
-      const response = await fetch(DEFAULT_MODEL_PATH, { method: "HEAD" });
-      if (!response.ok) throw new Error("ไม่พบไฟล์ GLB ใน public/models");
-      await clearModelFile();
-      replaceUrl(DEFAULT_MODEL_PATH);
-      setModelSource({
-        name: "suankularb_wittayalai_nonthaburi_school.glb",
-        size: Number(response.headers.get("content-length") ?? 0),
-        sha256: "",
-        source: "public",
-      });
-      setModelReport(null);
-    } catch (error) {
-      setModelLoading(false);
-      addToast("error", error instanceof Error ? error.message : "โหลดโมเดลไม่สำเร็จ");
-    } finally {
-      setBusy(false);
-    }
+      const response = await fetch(DEFAULT_MODEL_PATH);
+      if (!response.ok) throw new Error("ไม่พบไฟล์ใน public/models");
+      await onModelFile(new File([await response.blob()], "school.glb", { type: "model/gltf-binary" }));
+    } catch (error) { addToast("error", error instanceof Error ? error.message : "โหลดโมเดลไม่สำเร็จ"); }
   };
-
   const clearModel = async () => {
-    await clearModelFile();
-    replaceUrl(null);
-    setModelSource({ name: DIGITAL_MODEL_NAME_TH, size: 0, sha256: "generated-from-building1-plans", source: "generated" });
-    setModelReport(null);
-    setModelError(null);
-    setCalibration({ position: [0, 0, 0], rotation: [0, 0, 0], scale: 1 });
-    addToast("info", "กลับสู่โมเดลตึก 1 ที่สร้างใหม่แล้ว");
+    if (!window.confirm("เปิดผังมาตรฐานอาคาร 1, 3, 4 พร้อม node/edgeหรือไม่? ควรส่งออกโครงการปัจจุบันเก็บก่อน")) return;
+    try { await openSampleWorkspace(); }
+    catch (error) { addToast("error", error instanceof Error ? error.message : "เปิดตัวอย่างไม่สำเร็จ"); }
   };
 
   const autoFit = () => {
@@ -158,7 +95,7 @@ export function ModelPanel() {
         <button type="button" className="button primary" disabled={busy} onClick={() => fileInputRef.current?.click()}>{busy ? "กำลังประมวลผล…" : "นำเข้า GLB"}</button>
         <button type="button" className="button secondary" disabled={busy} onClick={() => void usePublicModel()}>โหลดจาก public/models</button>
         <button type="button" className="button secondary" onClick={autoFit}>Auto Fit / Ground</button>
-        <button type="button" className="button ghost" onClick={() => void clearModel()}>ใช้โมเดลตึก 1</button>
+        <button type="button" className="button ghost" onClick={() => void clearModel()}>ใช้ผังมาตรฐานอาคาร 1, 3, 4</button>
       </div>
       <input
         ref={fileInputRef}
@@ -172,7 +109,7 @@ export function ModelPanel() {
       />
       {modelError && <div className="notice error">{modelError}</div>}
       <div className="model-summary">
-        <div><span>สถานะ</span><strong>{modelUrl ? "GLB พร้อมใช้งาน" : "Generated"}</strong></div>
+        <div><span>สถานะ</span><strong>{modelSource.source === "empty" ? "พื้นที่ว่าง" : modelUrl ? "GLB พร้อมใช้งาน" : modelError ? "รอไฟล์ GLB" : "Generated"}</strong></div>
         <div><span>ขนาดไฟล์</span><strong>{formatBytes(modelSource.size)}</strong></div>
         <div><span>Mesh</span><strong>{modelReport?.meshCount.toLocaleString("th-TH") ?? "–"}</strong></div>
         <div><span>Triangles</span><strong>{modelReport?.triangleCount.toLocaleString("th-TH") ?? "–"}</strong></div>

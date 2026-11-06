@@ -10,6 +10,9 @@ import { useBuilding1Store } from "../building1/building1Store";
 import { uploadInstanceRange } from "../rendering/instanceBuffers";
 import { yOffsetForRender } from "./studentVisibility";
 import { activeFrameDelta } from "../rendering/frameClock";
+import { useBuilding3Store } from "../building1/building3Store";
+import { campusBuildingAt } from "./campusData";
+import type { Vec3 } from "./types";
 
 const vertexShader = `
   uniform float uTime;
@@ -54,7 +57,14 @@ export function FireEffects() {
   const selectedFloor = useBuilding1Store((state) => state.selectedFloor);
   const explodeFloors = useBuilding1Store((state) => state.explodeFloors);
   const buildingView = { viewMode, selectedFloor, explodeFloors };
-  const visibleFloor = (floor: number) => yOffsetForRender(floor, buildingView) !== null;
+  const campusNumber=useBuilding3Store(s=>s.buildingNumber);
+  const campusCut=useBuilding3Store(s=>s.cutawayFloor);
+  const renderOffset=(floor:number,position:Vec3):number|null=>{
+    const campus=campusBuildingAt(position);
+    if(!campus)return yOffsetForRender(floor,buildingView);
+    if(viewMode==="interior" || viewMode==="single-floor" || viewMode==="structure")return null;
+    return campus.number===campusNumber && campusCut>0 && floor>campusCut ? null : 0;
+  };
   const gl = useThree((state) => state.gl);
   const capacity = Math.max(8192, fires.reduce((sum, fire) => sum + Math.ceil(4 * (fire.fireRadius / .4) ** 2) + 256, 4096));
   const flames = useRef<THREE.InstancedMesh>(null);
@@ -79,7 +89,7 @@ export function FireEffects() {
     const time = evacuationRuntime.time;
     const animationTime = frameClock.current;
     const sources = evacuationRuntime.fires;
-    const signature = [tier, viewMode, selectedFloor, explodeFloors, showFire, showSmoke].join("|");
+    const signature = [tier, viewMode, selectedFloor, explodeFloors, showFire, showSmoke, campusNumber, campusCut].join("|");
     const previous = previousField.current;
     const fieldChanged = !previous || (sources.length > 0 && previous.time !== time) || previous.sources !== sources
       || previous.sourceCount !== sources.length || previous.signature !== signature
@@ -96,7 +106,7 @@ export function FireEffects() {
       for (const fire of sources) {
         for (const cell of flameCellsAt(fire, time)) {
           cellCount++;
-          const floorOffset = yOffsetForRender(cell.floor, buildingView);
+          const floorOffset = renderOffset(cell.floor,cell.position);
           if (floorOffset === null) continue;
           if (showFire) {
             for (let lobe = 0; lobe < lobes; lobe++) {
@@ -129,7 +139,7 @@ export function FireEffects() {
       let smokeCount = 0;
       for (const cell of smokeCells.current) {
         const cycle = (animationTime * .12 + cell.seed * .137) % 1;
-        const floorOffset = yOffsetForRender(cell.floor, buildingView) ?? 0;
+        const floorOffset = renderOffset(cell.floor,cell.position) ?? 0;
         dummy.position.set(cell.position[0] + cycle * .35, cell.position[1] + floorOffset + cell.height * .7 + cycle * 1.5, cell.position[2]);
         dummy.rotation.set(0, cell.seed, cycle * .2);
         const size = .22 + cell.radius * (1.1 + cycle);
@@ -156,7 +166,7 @@ export function FireEffects() {
     <instancedMesh ref={smoke} args={[undefined, undefined, capacity]} count={0} frustumCulled={false} renderOrder={6}>
       <icosahedronGeometry args={[1, 1]} /><meshBasicMaterial color="#5c6265" transparent opacity={.11} depthWrite={false} />
     </instancedMesh>
-    {fires.filter((fire) => fire.origin === "primary" && fire.enabled && visibleFloor(fire.floor)).map((fire, i) => <group key={fire.id} position={[fire.position[0], fire.position[1] + (yOffsetForRender(fire.floor, buildingView) ?? 0), fire.position[2]]}>
+    {fires.filter((fire) => fire.origin === "primary" && fire.enabled && renderOffset(fire.floor,fire.position)!==null).map((fire, i) => <group key={fire.id} position={[fire.position[0], fire.position[1] + (renderOffset(fire.floor,fire.position) ?? 0), fire.position[2]]}>
       {showFire && tier !== "economy" && i < 2 && <pointLight position={[0, .8, 0]} color="#ff8c2e" intensity={1.8} distance={7} decay={2} />}
       <Html center position={[0, 3, 0]} distanceFactor={9}>
         <div className="sim-world-fire-label"><strong>จุดต้นเพลิง</strong><span>{fire.floor ? `ชั้น ${fire.floor}` : "ภายนอกอาคาร"} · กำลังลาม</span></div>
