@@ -1,5 +1,6 @@
 {
   "rewrites": [
+    { "source": "/api/:path*", "destination": "https://skr-evac-backend-jamemoren.onrender.com/api/:path*" },
     { "source": "/mobile", "destination": "/mobile.html" },
     { "source": "/mobile/:path*", "destination": "/mobile.html" }
   ]
