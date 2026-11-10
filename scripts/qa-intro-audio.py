@@ -15,7 +15,9 @@ from playwright.async_api import async_playwright
 BASE = os.environ.get('QA_BASE', 'http://127.0.0.1:5199')
 CHROME = os.environ.get('QA_CHROME')
 SHOTS = os.environ.get('QA_SHOTS', 'qa-output/intro-audio')
-URL = BASE + '/?intro=1&qa=1&introDebug=1'
+# guide=0: the first-visit guide (opened after the intro on a fresh profile) would cover the buttons this
+# audio test clicks; the guide has its own checks in scripts/qa-experience.py.
+URL = BASE + '/?intro=1&qa=1&introDebug=1&guide=0'
 results = []
 
 def check(name, ok, detail=''):

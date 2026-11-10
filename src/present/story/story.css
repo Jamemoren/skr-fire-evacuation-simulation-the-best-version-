@@ -1,0 +1,173 @@
+/* The narrated story: the 3D model is the stage; a dark, narrow panel carries the math on the left
+   (or the lower part on phones); a thin bar at the bottom holds the progress and plain controls.
+   Blue = routes, amber = queue, red = closed. Sizes follow the viewport so a projector reads it. */
+
+.st-root {
+  --st-ink: #eef6ff; --st-ink-2: #b8cbe2; --st-panel: rgba(7, 17, 36, .86);
+  --st-A: #40b8d5; --st-B: #8fb7ff; --st-chosen: #5ee0ff; --st-queue: #ffb547; --st-closed: #ff5a5f; --st-ok: #4fd6a0;
+  position: fixed; inset: 0; z-index: 940; pointer-events: none;
+  font-family: var(--pi-font); color: var(--st-ink);
+  font-size: clamp(14px, 1.15vw + .35vh, 24px);
+}
+.st-root *, .st-root *::before, .st-root *::after { box-sizing: border-box; }
+.st-panel, .st-bar { pointer-events: auto; }
+
+.st-panel {
+  /* Grows with the beat's content (short opening beats leave the model visible), capped above the bar. */
+  position: absolute; left: clamp(10px, 1.2vw, 24px); top: clamp(10px, 2vh, 28px);
+  max-height: calc(100% - clamp(10px, 2vh, 28px) - clamp(56px, 7.5vh, 84px) - clamp(16px, 2.4vh, 32px)); min-height: min(42vh, 22em);
+  width: min(38vw, 40em); overflow: auto; overscroll-behavior: contain; scrollbar-width: thin;
+  display: flex; flex-direction: column; gap: .55em;
+  padding: 1.1em 1.2em 1em; border-radius: 16px;
+  background: linear-gradient(170deg, rgba(10, 24, 50, .92), var(--st-panel) 60%, rgba(8, 40, 60, .86));
+  border: 1px solid rgba(143, 183, 255, .16);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .35);
+  backdrop-filter: blur(6px);
+}
+.st-kicker { margin: 0; color: var(--st-A); font-size: .72em; font-weight: 700; letter-spacing: .04em; }
+.st-body { display: flex; flex-direction: column; gap: .6em; animation: st-in .35s ease-out; }
+@keyframes st-in { from { transform: translateY(4px); } to { transform: none; } }
+.st-caption { margin: auto 0 0; padding-top: .6em; border-top: 1px solid rgba(255, 255, 255, .1); color: var(--st-ink-2); font-size: .82em; line-height: 1.5; }
+
+.st-question { margin: 0; font-size: 1.45em; line-height: 1.4; font-weight: 700; }
+.st-question b { color: var(--st-queue); }
+.st-lead { margin: 0; line-height: 1.5; }
+.st-facts { margin: 0; padding: 0; list-style: none; display: grid; gap: .35em; }
+.st-facts li { display: flex; align-items: center; gap: .5em; }
+.st-dot { width: .8em; height: .8em; border-radius: 50%; flex: none; }
+.st-dot.is-room { background: #ffd166; } .st-dot.is-zone { background: var(--st-ok); }
+.st-swatch { width: 2em; height: 0; border-top: 5px solid var(--st-A); flex: none; }
+.st-swatch.is-B { border-top: 4px dashed var(--st-B); }
+
+.st-formula { display: flex; flex-wrap: wrap; align-items: flex-start; gap: .25em .35em; padding: .6em .7em; border-radius: 10px; background: rgba(0, 0, 0, .28); font-size: .95em; }
+.st-eq, .st-op { font-weight: 700; padding-top: .15em; }
+.st-term { display: inline-flex; flex-direction: column; align-items: center; padding: .15em .35em; border-radius: 8px; border-bottom: 3px solid var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); transition: opacity .3s, filter .3s; }
+.st-term b { font: 700 1em/1.3 ui-monospace, "Sarabun", var(--pi-font); white-space: nowrap; }
+.st-term small { font-size: .62em; color: var(--st-ink-2); }
+.st-term.is-off { opacity: .32; filter: grayscale(1); }
+.st-term.is-off b { text-decoration: line-through; }
+.st-term.is-hot { box-shadow: 0 0 0 2px var(--c); }
+.st-term i { font-style: normal; }
+.st-units { display: grid; gap: .25em; margin: 0; font-size: .78em; }
+.st-units div { display: grid; grid-template-columns: 4.2em 1fr; gap: .5em; }
+.st-units dt { font-weight: 700; }
+.st-units dd { margin: 0; color: var(--st-ink-2); }
+
+.st-lines { display: grid; gap: .25em; margin: 0; font: 600 .95em/1.55 ui-monospace, "Sarabun", var(--pi-font); }
+.st-lines p { margin: 0; }
+.st-chip { display: inline-block; padding: .1em .55em; border: 2px solid var(--c); border-radius: 999px; color: var(--st-ink); background: color-mix(in srgb, var(--c) 18%, transparent); }
+.st-big { font-size: 1.55em; letter-spacing: .01em; color: #fff; }
+.st-num { font-variant-numeric: tabular-nums; }
+.st-q { color: var(--st-queue); }
+
+.st-card { display: grid; gap: .25em; margin: 0; padding: .6em .7em; border-radius: 10px; background: rgba(255, 255, 255, .06); font-size: .9em; }
+.st-card div { display: grid; grid-template-columns: 7.5em 1fr; gap: .5em; }
+.st-card dt { font-weight: 700; }
+.st-card dd { margin: 0; }
+
+.st-rows { margin: 0; padding: 0; list-style: none; display: grid; gap: .1em; font-size: .82em; }
+.st-rows li { display: flex; justify-content: space-between; padding: .12em .45em; border-radius: 6px; transition: background .2s; }
+.st-rows li.is-wait { color: rgba(255, 255, 255, .35); }
+.st-rows li.is-now { background: rgba(94, 224, 255, .2); }
+.st-total { display: flex; justify-content: space-between; align-items: baseline; margin: 0; padding: .3em .45em; border-top: 1px solid rgba(255, 255, 255, .15); }
+.st-match { margin: 0; padding: .45em .7em; border-radius: 8px; font-size: .9em; }
+.st-match.is-ok { background: rgba(79, 214, 160, .16); border: 1px solid rgba(79, 214, 160, .55); }
+.st-match.is-bad { background: rgba(255, 90, 95, .16); border: 1px solid rgba(255, 90, 95, .55); }
+.st-src { margin: 0; color: var(--st-ink-2); font-size: .7em; line-height: 1.5; }
+.st-verdict { margin: 0; padding: .35em .6em; border-left: 4px solid var(--st-chosen); background: rgba(94, 224, 255, .08); }
+
+.st-compare { display: grid; gap: .15em; font: 600 .9em/1.5 ui-monospace, "Sarabun", var(--pi-font); }
+.st-compare p { margin: 0; padding: .1em .4em; border-radius: 6px; }
+.st-compare p.is-chosen { background: rgba(94, 224, 255, .16); outline: 1px solid rgba(94, 224, 255, .5); }
+.st-Lchip { display: inline-block; padding: .05em .6em; border-radius: 999px; background: rgba(255, 181, 71, .18); border: 2px solid var(--st-queue); }
+
+.st-chart { margin: 0; }
+.st-chart svg { width: 100%; height: auto; display: block; }
+.st-grid { stroke: rgba(255, 255, 255, .1); }
+.st-axis { fill: var(--st-ink-2); font: 11px var(--pi-font); }
+.st-axis.is-A { fill: var(--st-queue); font-weight: 700; } .st-axis.is-B { fill: var(--st-B); font-weight: 700; }
+.st-axis.is-break { fill: #fff; font-weight: 700; }
+.st-lineA { fill: none; stroke: var(--st-queue); stroke-width: 3; }
+.st-lineB { fill: none; stroke: var(--st-B); stroke-width: 3; stroke-dasharray: 7 5; }
+.st-break { stroke: rgba(255, 255, 255, .55); stroke-dasharray: 3 4; }
+.st-cursor { stroke: rgba(255, 255, 255, .35); }
+.st-dotA { fill: var(--st-queue); } .st-dotB { fill: var(--st-B); }
+.st-dotA.is-chosen, .st-dotB.is-chosen { stroke: #fff; stroke-width: 3; }
+
+.st-blocked { margin: 0; padding: 0; list-style: none; display: grid; gap: .3em; font-size: .85em; }
+.st-blocked li { display: grid; gap: .1em; padding: .35em .55em; border-left: 4px solid var(--st-closed); background: rgba(255, 90, 95, .1); border-radius: 0 6px 6px 0; }
+.st-x { color: var(--st-closed); }
+.st-two { display: grid; grid-template-columns: 1fr 1fr; gap: .5em; }
+.st-two section { padding: .5em .6em; border-radius: 10px; font-size: .85em; }
+.st-two h4 { margin: 0 0 .2em; }
+.st-two p { margin: 0; line-height: 1.45; }
+.st-two .is-queue { border: 2px solid var(--st-queue); background: rgba(255, 181, 71, .1); }
+.st-two .is-fire { border: 2px dashed var(--st-closed); background: rgba(255, 90, 95, .1); }
+
+.st-table summary { cursor: pointer; color: var(--st-A); font-size: .85em; }
+.st-table table { width: 100%; margin-top: .4em; border-collapse: collapse; font-size: .68em; font-variant-numeric: tabular-nums; }
+.st-table caption { text-align: left; font-weight: 700; padding: .3em 0; }
+.st-table th, .st-table td { padding: .2em .35em; border-bottom: 1px solid rgba(255, 255, 255, .1); text-align: right; }
+.st-table th:first-child, .st-table td:first-child { text-align: left; }
+
+.st-slider { display: grid; gap: .3em; }
+.st-slider input { width: 100%; accent-color: var(--st-queue); min-height: 32px; }
+.st-end { display: flex; flex-wrap: wrap; gap: .45em; }
+.st-end button, .st-controls button, .st-sound {
+  min-height: 40px; min-width: 40px; padding: 0 .8em; border: 1px solid rgba(255, 255, 255, .18); border-radius: 10px;
+  color: var(--st-ink) !important; background: rgba(255, 255, 255, .07) !important; font: 600 .82em/1 var(--pi-font); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.st-end .st-primary { background: linear-gradient(90deg, #1f7fc4, #22a8a2) !important; border-color: transparent; }
+.st-root button:focus-visible, .st-root input:focus-visible { outline: 3px solid #ffd166; outline-offset: 2px; }
+.st-controls button:disabled { opacity: .35; cursor: default; }
+
+.st-bar {
+  position: absolute; left: clamp(10px, 1.2vw, 24px); right: clamp(10px, 1.2vw, 24px); bottom: clamp(8px, 1.4vh, 20px);
+  height: clamp(56px, 7.5vh, 84px); display: flex; align-items: center; gap: .8em; padding: 0 .8em;
+  border-radius: 14px; background: rgba(7, 17, 36, .78); backdrop-filter: blur(6px);
+}
+.st-controls { display: flex; gap: .35em; }
+.st-play { min-width: 52px !important; font-size: 1em !important; }
+.st-progress { flex: 1; display: flex; gap: 4px; margin: 0; padding: 0; list-style: none; min-width: 0; }
+.st-progress li { flex-basis: 0; min-width: 0; }
+.st-progress button { position: relative; width: 100%; height: 34px; padding: 14px 0 0; border: 0; background: transparent; color: var(--st-ink-2); font: 600 .62em/1.2 var(--pi-font); text-align: left; cursor: pointer; }
+.st-progress button::before { content: ""; position: absolute; left: 0; right: 0; top: 4px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .16); }
+.st-progress i { position: absolute; left: 0; right: 0; top: 4px; height: 6px; border-radius: 3px; background: var(--st-A); transform-origin: left; }
+.st-progress span { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.st-progress button[aria-current="true"] { color: #fff; }
+.st-time { font-variant-numeric: tabular-nums; color: var(--st-ink-2); font-size: .8em; }
+
+.st-connectors { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 1; }
+.st-connectors path { fill: none; stroke-width: 2.5; stroke-dasharray: 6 5; opacity: .9; }
+
+/* Start screen (inside the presentation) */
+.pz-start { position: fixed; inset: 0; z-index: 945; display: grid; place-items: center; pointer-events: auto; background: radial-gradient(ellipse at center, rgba(7, 17, 36, .55), rgba(7, 17, 36, .82)); font-family: var(--pi-font); color: #eef6ff; }
+.pz-start-card { width: min(720px, calc(100vw - 32px)); padding: 28px 30px; border-radius: 20px; background: rgba(9, 22, 46, .92); border: 1px solid rgba(143, 183, 255, .2); box-shadow: 0 24px 60px rgba(0, 0, 0, .45); display: grid; gap: 14px; }
+.pz-start-card h2 { margin: 0; font-size: clamp(22px, 2.4vw, 34px); line-height: 1.3; }
+.pz-start-card p { margin: 0; color: #b8cbe2; line-height: 1.55; font-size: clamp(15px, 1.2vw, 19px); }
+.pz-start-card .pz-q { color: #fff; font-weight: 700; }
+.pz-start-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.pz-start-actions button { min-height: 48px; padding: 0 18px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .2); background: rgba(255, 255, 255, .08); color: #eef6ff; font: 700 16px/1 var(--pi-font); cursor: pointer; }
+.pz-start-actions .is-primary { background: linear-gradient(90deg, #1f7fc4, #22a8a2); border-color: transparent; font-size: 18px; }
+.pz-start-actions button:focus-visible { outline: 3px solid #ffd166; outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .st-body, .st-term, .st-rows li { animation: none; transition: none; }
+}
+
+/* Phones / portrait: the model on top, the math in the lower half. */
+@media (max-aspect-ratio: 1/1) {
+  .st-root { font-size: 14px; }
+  .st-panel { top: auto; left: 8px; right: 8px; width: auto; height: 50dvh; bottom: 74px; padding: 12px; }
+  .st-panel { --cam: bottom; }
+  .st-bar { left: 6px; right: 6px; bottom: 6px; height: 62px; gap: 6px; padding: 0 6px; }
+  .st-progress span, .st-time { display: none; }
+  .st-progress button { height: 20px; padding: 0; }
+  .st-two { grid-template-columns: 1fr; }
+  .st-formula { font-size: .82em; }
+  .st-connectors { display: none; }
+}
+.pz-start-card h2 { letter-spacing: 0; text-transform: none; color: #fff; font-family: var(--pi-font); }
+.st-table tbody tr:hover, .st-table tbody tr:focus { background: rgba(255, 255, 255, .12); outline: none; }
+@media (max-aspect-ratio: 1/1) { .st-chart svg { max-height: 130px; } }

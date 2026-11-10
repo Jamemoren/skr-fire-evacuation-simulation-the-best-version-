@@ -1,6 +1,7 @@
 import { Line } from "@react-three/drei";
 import { useMemo } from "react";
 import { useMapperStore } from "../store";
+import { useBuilding1Store } from "../building1/building1Store";
 
 const CONNECTION_COLORS = {
   walkway: "#5eead4",
@@ -19,6 +20,9 @@ export function ConnectionsLayer() {
     () => new Map(annotations.map((annotation) => [annotation.id, annotation.position])),
     [annotations],
   );
+  const floors = useMemo(() => new Map(annotations.map((annotation) => [annotation.id, annotation.floor])), [annotations]);
+  // Single-floor / interior view: only passages on that floor (matches AnnotationLayer).
+  const floorOnly = useBuilding1Store((state) => (state.viewMode === "single-floor" || state.viewMode === "interior" ? state.selectedFloor : null));
 
   return (
     <group name="SEMANTIC_CONNECTIONS" userData={{ semanticOverlay: true }}>
@@ -26,6 +30,7 @@ export function ConnectionsLayer() {
         const from = positions.get(connection.fromId);
         const to = positions.get(connection.toId);
         if (!from || !to) return null;
+        if (floorOnly !== null && [floors.get(connection.fromId), floors.get(connection.toId)].some((floor) => floor != null && floor !== floorOnly)) return null;
         const selected = connection.id === selectedConnectionId;
         return (
           <Line

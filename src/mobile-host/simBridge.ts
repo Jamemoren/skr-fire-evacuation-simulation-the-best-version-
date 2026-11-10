@@ -73,6 +73,54 @@ export function useBotPhoneBridge(options: {
   }, [compliance]);
 
   useEffect(() => {
+    // The simulated fire reaches phones only as a real system would learn it: through the
+    // simulated smoke/heat sensors, and passages closed in the 3D world as closures. This runs for
+    // any active simulation round — with or without bots carrying phones — so the tester phone
+    // reroutes and draws the hazard on its plan while the 3D run burns.
+    const worldIncident = incident && incident.mode === "simulation" && incident.phase !== "ended" ? incident : null;
+    const syncSensors = async () => {
+      const runtime = evacuationRuntime;
+      const readings: unknown[] = [];
+      const changes: Array<{id:string;state:"alarm"|"normal"}> = [];
+      for (const sensor of sensorsRef.current) {
+        if (sensor.type !== "smoke" && sensor.type !== "heat") continue;
+        const position = runtime.nodePosition(sensor.nodeId);
+        if (!position) continue;
+        const risk = pointRisk(position, runtime.fires, runtime.time);
+        const temperature = modeledTemperatureFromHeat(risk.heat, runtime.config.ambientTemperatureC ?? 29);
+        const alarm = sensor.type === "smoke" ? risk.smoke >= SMOKE_ALARM_LEVEL : temperature >= HEAT_ALARM_C || risk.fire > 0.02;
+        const next = alarm ? "alarm" : "normal";
+        const previous = sensorState.current.get(sensor.sensorId) ?? (sensor.status === "alarm" ? "alarm" : "normal");
+        // Report only changes (a real detector reports its state, not a stream of "still normal").
+        if (next === previous && sensorState.current.has(sensor.sensorId)) continue;
+        if (next === "normal" && !sensorState.current.has(sensor.sensorId) && sensor.status !== "alarm") { sensorState.current.set(sensor.sensorId, "normal"); continue; }
+        changes.push({id:sensor.sensorId,state:next});
+        const sequence = Math.max(sensorSequence.current.get(sensor.sensorId) ?? -1, sensor.lastSequence) + 1;
+        sensorSequence.current.set(sensor.sensorId, sequence);
+        readings.push({
+          sensorId: sensor.sensorId, type: sensor.type,
+          value: sensor.type === "smoke" ? Math.round(Math.min(100, risk.smoke * 25) * 10) / 10 : Math.round(temperature * 10) / 10,
+          unit: sensor.type === "smoke" ? "%/m" : "°C", status: next,
+          eventId: `bot-sim-${sensor.sensorId}-${sequence}-${Math.random().toString(36).slice(2, 7)}`,
+          sequence, observedAt: Date.now(), quality: "good", mode: "simulated",
+        });
+      }
+      for(let offset=0;offset<readings.length;offset+=200){
+        await call("/api/sensors/events", { incidentId: worldIncident!.id, readings: readings.slice(offset,offset+200) });
+        changes.slice(offset,offset+200).forEach(change=>sensorState.current.set(change.id,change.state));
+      }
+    };
+
+    const syncClosures = async () => {
+      const now = evacuationRuntime.closedEdges;
+      const added = [...now].filter((edgeId) => !closuresSent.current.has(edgeId));
+      const removed = [...closuresSent.current].filter((edgeId) => !now.has(edgeId));
+      if (added.length) await call(`/api/admin/incidents/${worldIncident!.id}/closures`, { edgeIds: added, closed: true, reason: "ปิดในแบบจำลอง 3 มิติ" });
+      if (removed.length) await call(`/api/admin/incidents/${worldIncident!.id}/closures`, { edgeIds: removed, closed: false, reason: "เปิดในแบบจำลอง 3 มิติ" });
+      added.forEach((edgeId) => closuresSent.current.add(edgeId));
+      removed.forEach((edgeId) => closuresSent.current.delete(edgeId));
+    };
+
     if (!enabled) {
       evacuationRuntime.agents.forEach(agent => { agent.phoneAdvice = undefined; });
       setStatus({ state: "off", text: "", holders: 0, routesDelivered: 0, lastSyncAt: null });
@@ -87,7 +135,28 @@ export function useBotPhoneBridge(options: {
         finally { busyRef.current = false; }
       };
       void clear();
-      return () => { stopped = true; window.clearTimeout(timer); };
+      // No bots: still mirror the simulated fire (sensors) and 3D closures to the backend.
+      let worldTimer = 0;
+      let worldRun: object | null = null;
+      const versionOk = Boolean(map) && computeMapVersion(evacuationRuntime.graph) === map!.mapVersion;
+      const worldTick = async () => {
+        if (stopped || !worldIncident || !versionOk) return;
+        if (busyRef.current) { worldTimer = window.setTimeout(() => void worldTick(), 200); return; }
+        busyRef.current = true;
+        try {
+          const runtime = evacuationRuntime;
+          if (runtime.agents.length && runtime.time > 0) {
+            if (worldRun !== runtime.agents[0]) { worldRun = runtime.agents[0]; closuresSent.current.clear(); sensorState.current.clear(); }
+            await syncClosures();
+            await syncSensors();
+          }
+        } catch { /* next tick retries */ } finally {
+          busyRef.current = false;
+          if (!stopped) worldTimer = window.setTimeout(() => void worldTick(), 1000);
+        }
+      };
+      void worldTick();
+      return () => { stopped = true; window.clearTimeout(timer); window.clearTimeout(worldTimer); };
     }
     if (!incident || incident.mode !== "simulation" || incident.phase === "ended") {
       setStatus({ state: "error", text: "ต้องมีรอบ “สถานการณ์จำลอง” ที่ยังไม่ยุติ (บอทใช้กับรอบฝึกซ้อมหรือเหตุจริงไม่ได้)", holders: 0, routesDelivered: 0, lastSyncAt: null });
@@ -118,49 +187,6 @@ export function useBotPhoneBridge(options: {
       fullNext.current = true;
       // Bots of the previous run leave; real participants (if any) are untouched.
       await call(`/api/admin/incidents/${incident.id}/reset-test`, { scope: "bots" });
-    };
-
-    const syncSensors = async () => {
-      const runtime = evacuationRuntime;
-      const readings: unknown[] = [];
-      const changes: Array<{id:string;state:"alarm"|"normal"}> = [];
-      for (const sensor of sensorsRef.current) {
-        if (sensor.type !== "smoke" && sensor.type !== "heat") continue;
-        const position = runtime.nodePosition(sensor.nodeId);
-        if (!position) continue;
-        const risk = pointRisk(position, runtime.fires, runtime.time);
-        const temperature = modeledTemperatureFromHeat(risk.heat, runtime.config.ambientTemperatureC ?? 29);
-        const alarm = sensor.type === "smoke" ? risk.smoke >= SMOKE_ALARM_LEVEL : temperature >= HEAT_ALARM_C || risk.fire > 0.02;
-        const next = alarm ? "alarm" : "normal";
-        const previous = sensorState.current.get(sensor.sensorId) ?? (sensor.status === "alarm" ? "alarm" : "normal");
-        // Report only changes (a real detector reports its state, not a stream of "still normal").
-        if (next === previous && sensorState.current.has(sensor.sensorId)) continue;
-        if (next === "normal" && !sensorState.current.has(sensor.sensorId) && sensor.status !== "alarm") { sensorState.current.set(sensor.sensorId, "normal"); continue; }
-        changes.push({id:sensor.sensorId,state:next});
-        const sequence = Math.max(sensorSequence.current.get(sensor.sensorId) ?? -1, sensor.lastSequence) + 1;
-        sensorSequence.current.set(sensor.sensorId, sequence);
-        readings.push({
-          sensorId: sensor.sensorId, type: sensor.type,
-          value: sensor.type === "smoke" ? Math.round(Math.min(100, risk.smoke * 25) * 10) / 10 : Math.round(temperature * 10) / 10,
-          unit: sensor.type === "smoke" ? "%/m" : "°C", status: next,
-          eventId: `bot-sim-${sensor.sensorId}-${sequence}-${Math.random().toString(36).slice(2, 7)}`,
-          sequence, observedAt: Date.now(), quality: "good", mode: "simulated",
-        });
-      }
-      for(let offset=0;offset<readings.length;offset+=200){
-        await call("/api/sensors/events", { incidentId: incident.id, readings: readings.slice(offset,offset+200) });
-        changes.slice(offset,offset+200).forEach(change=>sensorState.current.set(change.id,change.state));
-      }
-    };
-
-    const syncClosures = async () => {
-      const now = evacuationRuntime.closedEdges;
-      const added = [...now].filter((edgeId) => !closuresSent.current.has(edgeId));
-      const removed = [...closuresSent.current].filter((edgeId) => !now.has(edgeId));
-      if (added.length) await call(`/api/admin/incidents/${incident.id}/closures`, { edgeIds: added, closed: true, reason: "ปิดในแบบจำลอง 3 มิติ" });
-      if (removed.length) await call(`/api/admin/incidents/${incident.id}/closures`, { edgeIds: removed, closed: false, reason: "เปิดในแบบจำลอง 3 มิติ" });
-      added.forEach((edgeId) => closuresSent.current.add(edgeId));
-      removed.forEach((edgeId) => closuresSent.current.delete(edgeId));
     };
 
     const tick = async () => {

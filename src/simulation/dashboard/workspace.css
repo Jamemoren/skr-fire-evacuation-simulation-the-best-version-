@@ -84,6 +84,7 @@
 .sw-speed select option { color: var(--pi-text); }
 .sw-speed:focus-within { box-shadow: var(--pi-focus-dark); }
 .sw-speed select:focus { outline: none; }
+.sw-speed-actual { padding: 2px 6px; border-radius: var(--pi-r-pill); color: #ffd28a; background: rgba(194, 98, 10, .28); font-size: var(--pi-fs-caption); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; cursor: help; }
 .sw-header-actions { display: flex; align-items: center; gap: var(--pi-2); }
 
 /* ---- Floating view dock (dark) -------------------------------------------------------- */
@@ -471,3 +472,26 @@
 .sw-root[data-mobile-host="docked"]:not([data-compact="true"]) .sw-panel-right { display: none; }
 .sw-root .mh-root.is-docked { bottom: var(--sw-edge); }
 .sw-root .mh-root.is-minimized { right: calc(var(--sw-right) + var(--sw-edge) * 2); bottom: calc(var(--pi-results-h) + var(--sw-edge) * 2); }
+
+/* Editor edits a run will apply (fire markers, no-go areas, closed passages, people per room). */
+.sw-editor-applied { display: grid; gap: 6px; margin-top: var(--pi-2); padding: var(--pi-2) var(--pi-3); border-radius: var(--pi-r-md, 10px); background: rgba(31, 111, 209, .08); font-size: var(--pi-fs-caption); }
+.sw-editor-applied ul { margin: 0; padding-left: 18px; color: var(--pi-text-2); }
+.sw-editor-applied .pi-btn { justify-self: start; }
+
+/* Guide button: always distinct; pulsing with a "เริ่มที่นี่" badge until first opened. */
+.sw-guide-button.is-highlight { color: #fff; background: rgba(255, 196, 61, .16); border: 1px solid rgba(255, 196, 61, .55); }
+.sw-guide-button.is-new { position: relative; color: #1b1300; background: linear-gradient(180deg, #ffd66b, #f3b31b); border: 1px solid #ffe39c; font-weight: 700; animation: sw-guide-pulse 1.8s ease-in-out infinite; }
+.sw-guide-badge { position: absolute; top: -9px; right: -10px; padding: 1px 7px; border-radius: 999px; color: #fff; background: #d1301f; font-size: 11px; font-style: normal; font-weight: 700; white-space: nowrap; box-shadow: 0 2px 6px rgba(0, 0, 0, .25); }
+@keyframes sw-guide-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 196, 61, .55); } 50% { box-shadow: 0 0 0 8px rgba(255, 196, 61, 0); } }
+@media (prefers-reduced-motion: reduce) { .sw-guide-button.is-new { animation: none; } }
+
+.sw-editor-notes { margin-top: 6px; color: #7a5a12; font-size: 12px; }
+.sw-editor-notes li { list-style: "• "; }
+
+/* Presentation entry: the brightest action in the header (cyan, not the danger colours). */
+.pi-btn.sw-present-button { color: #04202b; background: linear-gradient(160deg, #8fe3f5 0%, #40b8d5 55%, #1f8fb0 100%); border: 1px solid #b7eefa; font-weight: 700; }
+.pi-btn.sw-present-button:hover { background: linear-gradient(160deg, #a6ecfa 0%, #55c6e0 55%, #2a9cbd 100%); }
+.pi-btn.sw-present-button:focus-visible, .sound-toggle:focus-visible { outline: none; box-shadow: var(--pi-focus-dark); }
+/* Sound switch: gold while the browser waits for a click to allow sound. */
+.sound-toggle.is-blocked { color: #1b1300 !important; background: linear-gradient(180deg, #ffd66b, #f3b31b) !important; border-color: #ffe39c !important; }
+.sound-toggle.is-off { opacity: .85; }

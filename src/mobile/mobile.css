@@ -155,7 +155,17 @@ body { background: #eef3f9; }
 .m-map-room { fill: #dbe4ef; }
 .m-map-stair rect { fill: #fff; stroke: #48607e; stroke-width: 1.4; }
 .m-map-stair path { fill: none; stroke: #48607e; stroke-width: 1.2; }
+.m-map-route-halo { fill: none; stroke: #fff; stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; }
 .m-map-route { fill: none; stroke: #1f6fd1; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+/* Moving dashes along the route show the walking direction (respects reduced motion). */
+.m-map-route-flow { fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 2 12; animation: m-route-flow 1.1s linear infinite; }
+@keyframes m-route-flow { to { stroke-dashoffset: -14; } }
+@media (prefers-reduced-motion: reduce) { .m-map-route-flow { animation: none; } }
+.m-map-hazard line { stroke: #d1301f; stroke-width: 6; stroke-linecap: round; opacity: .85; }
+.m-map-hazard path { stroke: #fff; stroke-width: 2.4; stroke-linecap: round; }
+.m-map-hazard.is-closed line { stroke: #8a5a00; stroke-dasharray: 5 4; }
+.m-key-hazard { height: 5px; background: #d1301f; border-radius: 2px; }
+.m-key-closed { height: 5px; background: repeating-linear-gradient(90deg, #8a5a00 0 5px, transparent 5px 8px); }
 .m-map-target rect { fill: #fff; stroke: #0f7a54; stroke-width: 3; }
 .m-map-you circle { fill: #1f4f8f; stroke: #fff; stroke-width: 2; }
 .m-map-you .m-map-you-halo { fill: rgba(31, 79, 143, .18); stroke: none; }

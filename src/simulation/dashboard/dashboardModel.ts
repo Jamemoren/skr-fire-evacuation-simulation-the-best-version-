@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { useMapperStore } from "../../store";
-import { isDefaultSimulationProject } from "../../utils/projectFiles";
+import { alignToModel, analyzeEditorMap, type EditorAnalysis } from "../editorScenario";
+import { setEditorScenarioSource } from "../simulationStore";
+import { modelPhysics, modelPhysicsVersion, subscribeModelPhysics } from "../modelPhysics";
 import { evaluateOperationalReadiness, type OperationalReadinessReport } from "../operationalReadiness";
 import type { SimulationStatus } from "../types";
 
@@ -43,30 +45,44 @@ export function useReadiness() {
 }
 
 /**
- * Why the current project cannot drive the built-in simulator, with the fix for each.
- * Empty list = the standard Building 1 template is intact.
+ * Why the current project cannot drive the built-in simulator, with the fix for each. Edits the
+ * simulator can honour (fire markers, no-go areas, closed passages, people per room) are not
+ * issues: they are applied when the run starts (see editorScenario.ts).
+ * Empty list = runnable.
  */
 export function useTemplateIssues(): string[] {
+  return useEditorAnalysis().blockers;
+}
+
+/** The editor map, analysed for the simulator: blockers, and what a run will apply from it. */
+export function useEditorAnalysis(): EditorAnalysis {
   const annotations = useMapperStore((s) => s.annotations);
   const connections = useMapperStore((s) => s.connections);
   const calibration = useMapperStore((s) => s.calibration);
   const objects = useMapperStore((s) => s.objects);
   const model = useMapperStore((s) => s.modelSource);
-  return useMemo(() => {
-    const map = {
-      schema: "skr-semantic-map" as const, version: 2 as const, coordinateSpace: "model-local" as const, exportedAt: "",
-      project: useMapperStore.getState().project, modelReport: null,
-      annotations, connections, calibration, objects, model,
-    };
-    if (isDefaultSimulationProject(map)) return [];
-    const issues: string[] = [];
-    if (model.source !== "generated") issues.push("ใช้โมเดลที่นำเข้าเอง → หน้าแก้ไข › แท็บโมเดล › “ใช้ผังมาตรฐานอาคาร 1, 3, 4”");
-    if (Object.keys(objects ?? {}).length > 0) issues.push("มีการแก้ไขวัตถุในโมเดล → หน้าแก้ไข › ใช้ Undo หรือคืนค่าวัตถุที่แก้");
-    if (calibration.scale !== 1 || [...calibration.position, ...calibration.rotation].some((v) => v !== 0)) issues.push("Calibration ไม่ใช่ค่าเริ่มต้น → หน้าแก้ไข › โมเดลและ Calibration › ตั้งตำแหน่ง/หมุน 0 และสเกล 1");
-    if (!issues.length) issues.push("node/edge ที่บันทึกไว้ไม่ตรงกับผังจำลองอาคาร 1, 3, 4 รุ่นปัจจุบัน");
-    return issues;
-  }, [annotations, calibration, connections, model, objects]);
+  // Re-checked when the 3D collision model becomes available (moved points / new passages need it).
+  const physicsVersion = useSyncExternalStore(subscribeModelPhysics, modelPhysicsVersion, modelPhysicsVersion);
+  return useMemo(() => analyzeEditorMap({ annotations, connections, calibration, objects, model }, modelPhysics), [annotations, calibration, connections, model, objects, physicsVersion]);
 }
+
+/** One undoable step: structure and older-version items back to the real model; user edits kept. */
+export function alignEditorMapToModel(): number {
+  const state = useMapperStore.getState();
+  const result = alignToModel({ annotations: state.annotations, connections: state.connections });
+  if (result.changed) {
+    state.replaceNetwork(result.annotations, result.connections);
+    state.addToast("success", `จัดให้ตรงโมเดลจริงแล้ว ${result.changed} รายการ (ย้อนกลับได้ด้วย Undo)`);
+  }
+  return result.changed;
+}
+
+// The simulation store asks for the editor scenario when a run starts (fires, closures, people).
+setEditorScenarioSource(() => {
+  const state = useMapperStore.getState();
+  const analysis = analyzeEditorMap({ annotations: state.annotations, connections: state.connections, calibration: state.calibration, objects: state.objects, model: state.modelSource }, modelPhysics);
+  return analysis.runnable ? analysis.scenario : null;
+});
 
 export type StartBlock =
   | { kind: "checking" }

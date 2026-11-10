@@ -159,8 +159,9 @@ export function RoleplayHost() {
     if (next) set({ backend: { state: "ready", text: "" }, incidentId: next.incidentId });
     setRun(next);
     const floor = navigator.place().floor;
-    if (navigator.place().buildingId === "building-1") { useBuilding1Store.getState().setSelectedFloor(floor); useBuilding1Store.getState().setViewMode(floor <= 1 ? "exterior" : "cutaway"); }
-    else useBuilding1Store.getState().setViewMode("exterior");
+    // The whole building stays drawn (every floor), not only the character's floor and below.
+    if (navigator.place().buildingId === "building-1") useBuilding1Store.getState().setSelectedFloor(floor);
+    useBuilding1Store.getState().setViewMode("exterior");
     useEvacuationStore.getState().setSpeedFactor(1);
     useEvacuationStore.getState().resume();
     set({ phase: "playing" });
@@ -248,13 +249,14 @@ export function RoleplayHost() {
     if (!menuOpen && sim.status === "paused") sim.resume();
   }, [menuOpen, phase]);
 
-  // Upper floors of Building 1: open the building at the character's floor so the view is not a slab.
+  // Building 1: keep the floor selector in step with the character, but draw the whole building
+  // (all nine floors) — the player asked to see the building around them, not a cut-away slice.
   const playerFloor = useRoleplayStore((state) => (state.phase === "playing" && state.guide?.place.buildingId === "building-1" ? state.guide.place.floor : null));
   useEffect(() => {
     if (playerFloor === null) return;
     const building = useBuilding1Store.getState();
     building.setSelectedFloor(playerFloor);
-    building.setViewMode(playerFloor <= 1 ? "exterior" : "cutaway");
+    if (building.viewMode !== "exterior") building.setViewMode("exterior");
   }, [playerFloor]);
 
   // Unmounting mid-run ends the incident. (A closed tab cannot: its incident stays until staff end it.)

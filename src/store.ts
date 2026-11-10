@@ -132,6 +132,8 @@ interface MapperState {
   updateConnection: (id: string, patch: Partial<SemanticConnection>) => void;
   selectConnection: (id: string | null) => void;
   deleteConnection: (id: string) => void;
+  /** Replace nodes and passages in one undoable step (e.g. matching structure to the real model). */
+  replaceNetwork: (annotations: SemanticAnnotation[], connections: SemanticConnection[]) => void;
   setMeasurementPoint: (position: Vec3) => void;
   clearMeasurement: () => void;
   clearMap: () => void;
@@ -495,6 +497,7 @@ export const useMapperStore = create<MapperState>()(
           connections: state.connections.filter((connection) => connection.id !== id),
           selectedConnectionId: state.selectedConnectionId === id ? null : state.selectedConnectionId,
         })),
+        replaceNetwork: (annotations, connections) => commit(() => ({ annotations: structuredClone(annotations), connections: structuredClone(connections) })),
         setMeasurementPoint: (position) => set((state) => ({
           measurement: !state.measurement.start || state.measurement.end
             ? { start: position, end: null }

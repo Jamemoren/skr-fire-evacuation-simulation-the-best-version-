@@ -80,6 +80,8 @@ export interface FireSource {
    * reached, visibly burning cells on this path can injure an occupant.
    */
   spreadPath?: Vec3[];
+  /** Set when the fire comes from a "จุดจำลองไฟ" marker in the model editor (never saved as the fire pattern). */
+  sourceMarkerId?: string;
   spreadTravelStartTime?: number;
 }
 
@@ -103,6 +105,15 @@ export interface RouteBundle {
 
 export interface SimulationConfig {
   populationTarget: number;
+  /**
+   * Optional people per classroom (room id → count), set by the model editor. When present it
+   * replaces the even spread of populationTarget; rooms not listed are empty.
+   */
+  roomPopulation?: Record<string, number>;
+  /** Network changes from the model editor (already checked against the 3D model). */
+  graphEdits?: import("./graphEdits").GraphEdits | null;
+  /** Passages closed by the editor, including passages the editor added (closed after the graph is built). */
+  editorClosedEdgeIds?: string[];
   preset: RoutingPreset;
   walkingSpeed: number;
   responseDelayMin: number;

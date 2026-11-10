@@ -124,7 +124,7 @@ export function walkWorld(graph: SimGraph = createEvacuationGraph()): WalkWorld 
   return cachedWorld;
 }
 
-function closestOnPath(point: Vec3, path: Vec3[]) {
+export function closestOnPath(point: Vec3, path: Vec3[]) {
   let best = { point: path[0], distance: Infinity, along: 0, segment: 0 };
   let travelled = 0;
   for (let index = 1; index < path.length; index += 1) {
@@ -358,7 +358,11 @@ export function routeFromSupport(support: Support, nodeIds: string[], edgeIds: s
   return { nodeIds: [start, ...nodeIds.slice(join)], edgeIds: [support.edge.id, ...edgeIds.slice(join)] };
 }
 
-export function routeLookahead(world: WalkWorld, nodeIds: string[], edgeIds: string[], position: Vec3, ahead = 3) {
+/**
+ * The advised route as one walkable polyline (the real walkway paths of its edges, in walking
+ * order), with the floor each point leads to. Shared by the guidance arrow and the 3D route line.
+ */
+export function routePolyline(world: WalkWorld, nodeIds: string[], edgeIds: string[]): { polyline: Vec3[]; floorAt: number[] } | null {
   const polyline: Vec3[] = [];
   const floorAt: number[] = [];
   for (let index = 0; index < edgeIds.length; index += 1) {
@@ -385,7 +389,13 @@ export function routeLookahead(world: WalkWorld, nodeIds: string[], edgeIds: str
     if (reverses && Math.min(lu, lv) < 1.2 && Math.abs(c[1] - a[1]) < 0.3) { polyline.splice(index, 1); floorAt.splice(index, 1); index = Math.max(1, index - 1); }
     else index += 1;
   }
-  if (polyline.length < 2) return null;
+  return polyline.length < 2 ? null : { polyline, floorAt };
+}
+
+export function routeLookahead(world: WalkWorld, nodeIds: string[], edgeIds: string[], position: Vec3, ahead = 3) {
+  const built = routePolyline(world, nodeIds, edgeIds);
+  if (!built) return null;
+  const { polyline, floorAt } = built;
   const nearest = closestOnPath(position, polyline);
   let remaining = ahead;
   let index = nearest.segment;

@@ -55,7 +55,7 @@ export function LeftToolbar() {
   const setShowShortcuts = useMapperStore((state) => state.setShowShortcuts);
 
   return (
-    <aside className="left-toolbar panel">
+    <aside className="left-toolbar panel" data-camera-inset="left">
       <section>
         <div className="section-heading"><h2>เครื่องมือ</h2><button type="button" onClick={() => setShowShortcuts(true)} aria-label="แสดงคีย์ลัด">⌨</button></div>
         <div className="tool-list">

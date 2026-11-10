@@ -176,8 +176,9 @@ try {
     check("LOS: neighbouring classrooms cannot see each other through the wall", !spacesInView(topo, room1, room2));
     check("LOS: classroom ↔ its corridor through the door", spacesInView(topo, room1, corridor));
     check("LOS: different floors never share a space", !spacesInView(topo, corridor, topo.space.get("sim-corr-pink-f6-b1").key));
-    const b3 = topo.space.get("campus-b3-f4-gallery-0").key, b4 = topo.space.get("campus-b4-f4-gallery-0").key;
-    check("LOS: B3 and B4 fourth floors connect only through the bridge opening", spacesInView(topo, b3, b4) && !spacesInView(topo, topo.space.get("campus-b3-f3-gallery-0").key, topo.space.get("campus-b4-f3-gallery-0").key));
+    // 2026-11-09: the bridge is on floor 3 (was modelled on floor 4). Same check, floors swapped.
+    const b3 = topo.space.get("campus-b3-f3-gallery-0").key, b4 = topo.space.get("campus-b4-f3-gallery-0").key;
+    check("LOS: B3 and B4 floor 3 connect only through the bridge opening", spacesInView(topo, b3, b4) && !spacesInView(topo, topo.space.get("campus-b3-f4-gallery-0").key, topo.space.get("campus-b4-f4-gallery-0").key));
   }
 
   // ---------------------------------------------------------------- A. No fire
@@ -239,7 +240,7 @@ try {
   }
   {
     // B3 corridor fire + B4 bridge fire + B5 outdoor fire in one run.
-    const bridgeFire = [-67, BLOCK_LEVELS[3] + 0.2, -43 + BLOCK_GALLERY];
+    const bridgeFire = [-67, BLOCK_LEVELS[2] + 0.2, -43 + BLOCK_GALLERY];
     let bridge = null, outdoor = null, corridor = null;
     const rt = startRuntime({ populationTarget: 600, seed: 13 }, (r) => {
       corridor = r.addFire([-24, walkY(4) + 0.25, 1.9]);
@@ -247,16 +248,16 @@ try {
       outdoor = r.addFire([-194, 0.2, 25]);
     });
     check("B3: corridor fire attached to Building 1 floor 4", corridor.floor === 4 && corridor.wing !== "outdoor", `${corridor.floor}/${corridor.wing}`);
-    check("B4: bridge fire stays on the fourth-floor deck", bridge.floor === 4 && Math.abs(bridge.position[1] - BLOCK_LEVELS[3]) < 0.05);
+    check("B4: bridge fire stays on the floor-3 deck", bridge.floor === 3 && Math.abs(bridge.position[1] - BLOCK_LEVELS[2]) < 0.05);
     check("B5: parking/plaza fire is an outdoor hazard", outdoor.floor === 0);
     let b1KnowsBridge = 0;
-    // Anyone from B3/B4 who spends ≥ 2 s within 2 m of the bridge fire on the fourth-floor deck
+    // Anyone from B3/B4 who spends ≥ 2 s within 2 m of the bridge fire on the floor-3 deck
     // must know of it (plain sight); nobody is required to know it from further away.
     const nearSeconds = new Map();
     const audit = run(rt, 90, { onStep: (r) => {
       for (const a of r.agents) {
         if (building(a.roomId) === "building-1" && !a.hasExitedBuilding && a.fireKnowledge.has(bridge.id)) b1KnowsBridge += 1;
-        if (building(a.roomId) !== "building-1" && a.floor === 4 && Math.hypot(a.position[0] - bridge.position[0], a.position[2] - bridge.position[2]) <= 2) {
+        if (building(a.roomId) !== "building-1" && a.floor === 3 && Math.hypot(a.position[0] - bridge.position[0], a.position[2] - bridge.position[2]) <= 2) {
           nearSeconds.set(a.id, (nearSeconds.get(a.id) ?? 0) + DT);
         }
       }
@@ -268,26 +269,26 @@ try {
     invariantChecks("B3–B5 multi-fire", rt, audit);
   }
   {
-    // B4 perception probe: the straight bridge is part of both fourth-floor decks. A person standing
-    // at the B4 end sees a fire 2 m out on the bridge; a person on B1 floor 4 never does.
-    const deckY = BLOCK_LEVELS[3];
+    // B4 perception probe: the straight bridge is part of both floor-3 decks. A person standing
+    // at the B4 end sees a fire 2 m out on the bridge; a person on B1 floor 3 never does.
+    const deckY = BLOCK_LEVELS[2];
     let fire = null;
     const rt = startRuntime({ populationTarget: 300, seed: 21, responseDelayMin: 0, responseDelayMax: 1 }, (r) => { fire = r.addFire([-50.5, deckY + 0.2, -39.98]); });
     rt.advance(20);
-    const b4End = rt.nodeMap.get("campus-b4-f4-gallery-0");
-    const probe = rt.agents.find((a) => building(a.roomId) === "building-4" && a.floor === 4);
+    const b4End = rt.nodeMap.get("campus-b4-f3-gallery-0");
+    const probe = rt.agents.find((a) => building(a.roomId) === "building-4" && a.floor === 3);
     // Start the probe from "does not know" so the check measures this one perception update.
     probe?.fireKnowledge.delete(fire.id);
-    const b1Probe = rt.agents.find((a) => building(a.roomId) === "building-1" && a.floor === 4);
+    const b1Probe = rt.agents.find((a) => building(a.roomId) === "building-1" && a.floor === 3);
     if (!probe || !b4End || !b1Probe) {
-      check("B4 probe: setup found a B4 fourth-floor occupant and the bridge end", false, { probe: Boolean(probe), b4End: Boolean(b4End), b1Probe: Boolean(b1Probe) });
+      check("B4 probe: setup found a B4 floor-3 occupant and the bridge end", false, { probe: Boolean(probe), b4End: Boolean(b4End), b1Probe: Boolean(b1Probe) });
     } else {
       probe.position = [b4End.position[0], b4End.position[1], b4End.position[2]];
       probe.currentNodeId = b4End.id;
       rt.updateFireAwareness(probe);
       check("B4 probe: someone at the B4 end of the bridge sees a fire on the bridge", probe.fireKnowledge.has(fire.id), probe.fireKnowledge.get(fire.id)?.source ?? "unknown");
       rt.updateFireAwareness(b1Probe);
-      check("B4 probe: a Building 1 fourth-floor occupant does not perceive the bridge fire directly",
+      check("B4 probe: a Building 1 floor-3 occupant does not perceive the bridge fire directly",
         !["direct", "smoke", "heat"].includes(b1Probe.fireKnowledge.get(fire.id)?.source), b1Probe.fireKnowledge.get(fire.id)?.source ?? "none");
     }
   }
@@ -320,17 +321,17 @@ try {
   {
     const rt = startRuntime({ populationTarget: 600, seed: 22 }, (r) => { r.setPassageGroupClosed("b3-stair-0", true); r.setPassageGroupClosed("b3-stair-1", true); });
     let bridgeUsers = new Set();
-    const audit = run(rt, 2400, { onStep: (r) => { for (const a of r.agents) if (a.edgeEntered && a.route.edgeIds[a.edgeIndex] === "campus-straight-bridge-level-4") bridgeUsers.add(a.id); } });
+    const audit = run(rt, 2400, { onStep: (r) => { for (const a of r.agents) if (a.edgeEntered && a.route.edgeIds[a.edgeIndex] === "campus-straight-bridge-level-3") bridgeUsers.add(a.id); } });
     const m = invariantChecks("C2 B3 stairs closed", rt, audit);
     const b3 = rt.agents.filter((a) => a.roomId.startsWith("b3-"));
-    check("C2: Building 3 occupants escape through the fourth-floor bridge", [...bridgeUsers].some((id) => rt.agents[id].roomId.startsWith("b3-")), bridgeUsers.size);
+    check("C2: Building 3 occupants escape through the floor-3 bridge", [...bridgeUsers].some((id) => rt.agents[id].roomId.startsWith("b3-")), bridgeUsers.size);
     check("C2: nobody uses a closed B3 stair", audit.closedTraversals === 0, audit.closedTraversals);
-    // With both B3 stairs closed there is physically no way off floors 2–3 (no stair at all):
-    // floor 1 walks out, floor 4 crosses the bridge, floors 2–3 must never be counted as arrived.
-    const b3Escapable = b3.filter((a) => a.floor === 1 || a.roomId.includes("-f4-") || a.roomId.includes("-f1-"));
-    const b3Trapped = b3.filter((a) => a.roomId.includes("-f2-") || a.roomId.includes("-f3-"));
-    check("C2: B3 floor 1 and floor 4 occupants all arrive", b3Escapable.every((a) => a.status === "arrived"), `${b3Escapable.filter((a) => a.status === "arrived").length}/${b3Escapable.length}`);
-    check("C2: B3 floors 2–3 (no stair left) are never reported as arrived", b3Trapped.length > 0 && b3Trapped.every((a) => a.status !== "arrived"), `${b3Trapped.filter((a) => a.status === "arrived").length} arrived of ${b3Trapped.length}`);
+    // With both B3 stairs closed there is physically no way off floors 2 and 4 (no stair at all):
+    // floor 1 walks out, floor 3 crosses the bridge, floors 2 and 4 must never be counted as arrived.
+    const b3Escapable = b3.filter((a) => a.floor === 1 || a.roomId.includes("-f3-") || a.roomId.includes("-f1-"));
+    const b3Trapped = b3.filter((a) => a.roomId.includes("-f2-") || a.roomId.includes("-f4-"));
+    check("C2: B3 floor 1 and floor 3 occupants all arrive", b3Escapable.every((a) => a.status === "arrived"), `${b3Escapable.filter((a) => a.status === "arrived").length}/${b3Escapable.length}`);
+    check("C2: B3 floors 2 and 4 (no stair left) are never reported as arrived", b3Trapped.length > 0 && b3Trapped.every((a) => a.status !== "arrived"), `${b3Trapped.filter((a) => a.status === "arrived").length} arrived of ${b3Trapped.length}`);
     summary.b3StairsClosed = { arrived: m.arrived, total: m.total, bridgeUsers: bridgeUsers.size, seconds: +m.elapsed.toFixed(1) };
   }
   {

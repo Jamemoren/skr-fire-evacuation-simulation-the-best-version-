@@ -6,6 +6,7 @@
 import type { SimEdge, SimNode } from "../simulation/types";
 import type { Maneuver, ManeuverKind } from "./protocol";
 import { BUILDING_NAMES, displayNodeName, stairBaseName } from "./mapRegistry";
+import { BRIDGE_EDGE_ID, BRIDGE_SHORT_TH } from "../simulation/bridge";
 
 export interface ManeuverContext {
   nodeMap: Map<string, SimNode>;
@@ -14,7 +15,7 @@ export interface ManeuverContext {
 }
 
 function stepKind(edge: SimEdge): ManeuverKind {
-  if (edge.id === "campus-straight-bridge-level-4") return "bridge";
+  if (edge.id === BRIDGE_EDGE_ID) return "bridge";
   if (edge.kind === "room") return "leave-room";
   if (edge.kind === "stair") return edge.floorTo < edge.floorFrom ? "stair-down" : edge.floorTo > edge.floorFrom ? "stair-up" : "walk";
   if (edge.kind === "exit") return "exit";
@@ -63,7 +64,7 @@ export function buildManeuvers(nodeIds: string[], edgeIds: string[], ctx: Maneuv
       case "walk": {
         const target = nextStep && (nextStep.kind === "stair-down" || nextStep.kind === "stair-up")
           ? stairBaseName(nextLandmarkNode)
-          : nextStep?.kind === "bridge" ? "ทางเชื่อมชั้น 4" : nextStep?.kind === "exit" ? displayNodeName(nextLandmarkNode) : displayNodeName(last);
+          : nextStep?.kind === "bridge" ? BRIDGE_SHORT_TH : nextStep?.kind === "exit" ? displayNodeName(nextLandmarkNode) : displayNodeName(last);
         text = `เดินไปทาง${target}`;
         landmark = target;
         break;
@@ -74,8 +75,8 @@ export function buildManeuvers(nodeIds: string[], edgeIds: string[], ctx: Maneuv
         text = `${step.kind === "stair-down" ? "ลง" : "ขึ้น"}${landmark} ไปชั้น ${last?.floor ?? "-"}`;
         break;
       case "bridge":
-        landmark = "ทางเชื่อมชั้น 4";
-        text = `ข้ามทางเชื่อมชั้น 4 ไป${BUILDING_NAMES[ctx.buildingOf.get(step.nodeIds[step.nodeIds.length - 1]) ?? ""] ?? "อีกอาคาร"}`;
+        landmark = BRIDGE_SHORT_TH;
+        text = `ข้าม${BRIDGE_SHORT_TH} ไป${BUILDING_NAMES[ctx.buildingOf.get(step.nodeIds[step.nodeIds.length - 1]) ?? ""] ?? "อีกอาคาร"}`;
         break;
       case "exit": {
         // Name the doorway people will see ("ทางออกกลาง", "ช่องทางออกตึก 3 บันได 1"), not the outside point.

@@ -108,13 +108,14 @@ for (const [choice, label] of [
   check(`A ${label}: every floor passed on the way down (no floor skipped)`, floors.every((f, i) => i === 0 || f - floors[i - 1] === 1), floors.join(","));
 }
 
-// ---------------------------------------------------------------- B. the B3–B4 bridge on floor 4
+// ---------------------------------------------------------------- B. the B3–B4 bridge on floor 3
+// (2026-11-09: the bridge is on floor 3; it was modelled on floor 4 before. Same check, new floor.)
 {
-  const choice = { buildingId: "building-3", floor: 4, kind: "room", id: "b3-f4-room-1" };
+  const choice = { buildingId: "building-3", floor: 3, kind: "room", id: "b3-f3-room-1" };
   const plan = spawn.planSpawn(choice, [], []);
   const b3Stairs = registry.graph.edges.filter((edge) => edge.kind === "stair" && registry.buildingOf.get(edge.from) === "building-3").map((edge) => edge.id);
-  const result = plan.requested.ok ? drive(plan.requested.point, "B3 floor 4 with B3 stairs closed", { closed: b3Stairs }) : { ok: false, why: plan.requested.reasons.join(";") };
-  check("B with every B3 stair closed, a B3 floor-4 player crosses the bridge to B4 and gets out", result.ok && result.audit.usedEdges.has("campus-straight-bridge-level-4"), result.ok ? `${result.area} · bridge used: ${result.audit.usedEdges.has("campus-straight-bridge-level-4")}` : result.why);
+  const result = plan.requested.ok ? drive(plan.requested.point, "B3 floor 3 with B3 stairs closed", { closed: b3Stairs }) : { ok: false, why: plan.requested.reasons.join(";") };
+  check("B with every B3 stair closed, a B3 floor-3 player crosses the bridge to B4 and gets out", result.ok && result.audit.usedEdges.has("campus-straight-bridge-level-3"), result.ok ? `${result.area} · bridge used: ${result.audit.usedEdges.has("campus-straight-bridge-level-3")}` : result.why);
 }
 
 // ---------------------------------------------------------------- C. walls and voids

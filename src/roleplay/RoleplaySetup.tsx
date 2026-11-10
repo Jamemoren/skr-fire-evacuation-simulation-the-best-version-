@@ -147,7 +147,7 @@ export function RoleplaySetup({ onStart, onCancel, backendNote }: { onStart: () 
         </label>
         <label className="rp-field is-wide"><span>ห้อง / จุดตรวจ</span>
           <select value={`${choice.kind}:${choice.id}`} onChange={(event) => { const [kind, ...rest] = event.target.value.split(":"); setChoice({ kind: kind as SpawnChoice["kind"], id: rest.join(":") }); }}>
-            {options.map((option) => <option key={`${option.kind}:${option.id}`} value={`${option.kind}:${option.id}`}>{option.kind === "room" ? "ห้อง" : "จุด"} · {option.label}</option>)}
+            {options.map((option) => <option key={`${option.kind}:${option.id}`} value={`${option.kind}:${option.id}`}>{option.kind === "room" ? (/^ห้อง/.test(option.label) ? option.label : `ห้อง · ${option.label}`) : `จุด · ${option.label}`}</option>)}
           </select>
         </label>
         <label className="rp-field"><span>จำนวน NPC</span>

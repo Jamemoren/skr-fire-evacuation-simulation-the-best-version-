@@ -5,12 +5,13 @@
  * belongs to a *visual space* (one classroom, one corridor wing of one floor of one building, one
  * stair landing, or the open site). A person can see a hazard only inside the same space or in
  * an adjacent space through a real opening (classroom door ↔ corridor, wing ↔ central junction,
- * corridor ↔ stair landing, B3 ↔ B4 across the fourth-floor bridge), and only within the sight
+ * corridor ↔ stair landing, B3 ↔ B4 across the floor-3 bridge), and only within the sight
  * distance. Walls and floor slabs therefore block sight; a fire in the next classroom is not
  * "seen" through the dividing wall. Smoke/heat cues still reach people through pointRisk() falloff,
  * but only inside the same building and floor.
  */
 import type { SimEdge, SimGraph, SimNode } from "./types";
+import { BRIDGE_FLOOR } from "./bridge";
 
 export type BuildingId = "building-1" | "building-3" | "building-4" | "site";
 
@@ -108,7 +109,7 @@ export function spacesInView(topology: PerceptionTopology, a: string | undefined
 /**
  * Report zones: shouted warnings travel within one building wing/floor first, then to the other
  * wings of that floor and to the floors directly above/below through the same building. They never
- * jump to another building except across the B3–B4 fourth-floor bridge.
+ * jump to another building except across the B3–B4 bridge (floor BRIDGE_FLOOR).
  */
 export function reportZoneOf(node: SimNode | undefined): string | null {
   if (!node) return null;
@@ -132,9 +133,9 @@ export function neighbouringReportZones(zone: string): Array<{ zone: string; del
       const next = floor + offset;
       if (next >= 1 && next <= 4) result.push({ zone: `${building}:${next}:${wing}`, delay: 2.6 });
     }
-    if (floor === 4) {
+    if (floor === BRIDGE_FLOOR) {
       const other = building === "building-3" ? "building-4" : "building-3";
-      result.push({ zone: `${other}:4:${other}`, delay: 3.2 });
+      result.push({ zone: `${other}:${BRIDGE_FLOOR}:${other}`, delay: 3.2 });
     }
   }
   return result;

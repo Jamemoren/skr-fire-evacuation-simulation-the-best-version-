@@ -215,9 +215,9 @@ async function main() {
   const vb2 = await view(b.token);
   check("D5 a participant not using that stair keeps the same route (no needless churn)", vb2.advice.routeId === vb.advice.routeId, `${vb.advice.routeRevision}->${vb2.advice.routeRevision}`);
 
-  // ---- bridge closed (B3/B4 floor 4) ---------------------------------------------------------
+  // ---- bridge closed (B3/B4 floor 3; was floor 4 before 2026-11-09) -------------------------------
   const c = (await join(drill.joinCode, "qa-device-c")).json;
-  await report(c.token, { source: "manual", checkpointId: cp("B4F4-").id });
+  await report(c.token, { source: "manual", checkpointId: cp("B4F3-").id });
   const vc = await view(c.token);
   await post(`/api/admin/incidents/${drill.id}/closures`, { groupId: "b34-bridge", closed: true, reason: "QA" }, STAFF);
   await sleep(200);

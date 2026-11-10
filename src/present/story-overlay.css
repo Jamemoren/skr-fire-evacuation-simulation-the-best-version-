@@ -1,0 +1,6 @@
+.story-label { display: inline-block; padding: 5px 10px; border: 2px solid #40b8d5; border-radius: 10px; color: #f5f8fc; background: rgba(11, 20, 38, .9); font: 600 14px/1.35 var(--pi-font, "IBM Plex Sans Thai", sans-serif); white-space: nowrap; box-shadow: 0 6px 18px rgba(0, 0, 0, .35); }
+.story-label.is-fire, .story-label.is-closed { border-color: #ff5a36; }
+.story-label.is-ghost { border-style: dashed; border-color: #9fb3c8; color: #d6e2ee; }
+.story-label.is-new { border-color: #4fd6a0; }
+.story-label.is-person { border-color: #ffd166; }
+.story-label.is-big { padding: 7px 13px; font-size: 18px; border-width: 3px; }

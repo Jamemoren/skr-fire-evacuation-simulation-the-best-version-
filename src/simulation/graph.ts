@@ -176,7 +176,9 @@ function junctionId(floor: number) {
 export const SIM_EXIT_POSITIONS: Record<StairZone, Vec3> = {
   left: [-49, 0.2, 12],
   center: [-9, 0.2, 15],
-  right: [11, 0.2, 48],
+  // Outside the open front (courtyard side) of the blue wing's ground floor: the rear (east) side
+  // is a sealed wall in the 3D model, so the earlier point at x=11 could only be reached through it.
+  right: [-5.2, 0.2, 49.5],
 };
 
 // Keep the assembly gate north of the blue end tower. The previous z=58 gate sat
@@ -331,6 +333,16 @@ function computeEdgeRisk(edge: SimEdge, nodeMap: Map<string, SimNode>, fires: Fi
 
 const edgeHazardResults = new WeakMap<SimEdge, Map<string, ReturnType<typeof computeEdgeRisk>>>();
 
+const fireSignatures = new WeakMap<FireSource, { id: string; x: number; y: number; z: number; floor: number; startTime: number; fireRadius: number; smokeRadius: number; spreadRate: number; intensity: number; value: string }>();
+function fireRiskSignature(fire: FireSource): string {
+  const c = fireSignatures.get(fire), p = fire.position;
+  if (c && c.id === fire.id && c.x === p[0] && c.y === p[1] && c.z === p[2] && p.length === 3 && c.floor === fire.floor && c.startTime === fire.startTime
+    && c.fireRadius === fire.fireRadius && c.smokeRadius === fire.smokeRadius && c.spreadRate === fire.spreadRate && c.intensity === fire.intensity) return c.value;
+  const value = JSON.stringify([fire.id, fire.position, fire.floor, fire.startTime, fire.fireRadius, fire.smokeRadius, fire.spreadRate, fire.intensity]);
+  fireSignatures.set(fire, { id: fire.id, x: p[0], y: p[1], z: p[2], floor: fire.floor, startTime: fire.startTime, fireRadius: fire.fireRadius, smokeRadius: fire.smokeRadius, spreadRate: fire.spreadRate, intensity: fire.intensity, value });
+  return value;
+}
+
 function edgeRisk(edge: SimEdge, nodeMap: Map<string, SimNode>, fires: FireSource[], time: number) {
   // Alternative global routes evaluate the same edge repeatedly. Reuse exact hazard states;
   // do not round time or positions, which could miss a growing flame at a narrow clearance.
@@ -338,9 +350,13 @@ function edgeRisk(edge: SimEdge, nodeMap: Map<string, SimNode>, fires: FireSourc
     fireCanAffectFloor(fire, edge.floorFrom) || fireCanAffectFloor(fire, edge.floorTo)
     || (fire.floor === 0 && (edge.floorFrom === 0 || edge.floorTo === 0 || edge.kind === "outdoor"))
   ));
-  const key = relevant.length ? JSON.stringify([time, relevant.map((fire) => [
-    fire.id, fire.position, fire.floor, fire.startTime, fire.fireRadius, fire.smokeRadius, fire.spreadRate, fire.intensity,
-  ])]) : "clear";
+  // Same identity as JSON.stringify([time, relevant.map(tuple)]) — two keys match exactly when the
+  // time and every relevant fire tuple match — but each fire's tuple string is built once, not per call.
+  let key = "clear";
+  if (relevant.length) {
+    key = String(time);
+    for (const fire of relevant) key += "|" + fireRiskSignature(fire);
+  }
   let cache = edgeHazardResults.get(edge);
   if (!cache) { cache = new Map(); edgeHazardResults.set(edge, cache); }
   const cached = cache.get(key);
@@ -660,7 +676,7 @@ export function createEvacuationGraph(includeCampus = true, layout = SITE_LAYOUT
     const clearDoorPaths: Record<StairZone, Vec3[]> = {
       left: [[-52, walkY(1), 7]],
       center: [[-4, walkY(1), 10]],
-      right: [[8, walkY(1), 50]],
+      right: [[2.5, walkY(1), 49.5]],
     };
     pendingEdges.push({
       id: `edge-${zone}-door-exit`,
@@ -678,7 +694,7 @@ export function createEvacuationGraph(includeCampus = true, layout = SITE_LAYOUT
     const outdoorPaths: Record<StairZone, Vec3[]> = {
       left: [[-39, 0.22, 17], [-24, 0.22, 23], [-12, 0.22, 35], [-7, 0.22, 62.6], [-5.4, 0.22, 65.2]],
       center: [[-8, 0.22, 22], [-7, 0.22, 44], [-7, 0.22, 62.6], [-5.4, 0.22, 65.2]],
-      right: [[12.8, 0.22, 50.5], [13.2, 0.22, 62.5], [8, 0.22, 65.5]],
+      right: [[-6.5, 0.22, 50.5], [-7, 0.22, 62.6], [-5.4, 0.22, 65.2]],
     };
     FIELD_GATE_VARIANTS.forEach((gate) => {
       const gateSuffix = gate.id === "sim-field-gate" ? "" : gate.id.endsWith("left") ? "-left" : "-right";
@@ -777,6 +793,42 @@ function arcCost(
   if (config.preset === "fastest") return travel + queueDelay * 0.95 + density * 2.5 + risk.fire * 1400 + risk.heat * 720 + risk.smoke * 180 + thermalPenalty * 0.35;
   if (config.preset === "safest") return travel * 0.35 + queueDelay * 0.55 + risk.fire * 7000 + risk.heat * 3800 + risk.smoke * 2400 + density * 16 + thermalPenalty * 1.75;
   return risk.navigationDistance * config.distanceWeight + (travel + queueDelay) * config.timeWeight + density * config.congestionWeight + risk.fire * config.fireWeight + risk.heat * config.fireWeight * 0.58 + risk.smoke * config.smokeWeight + thermalPenalty;
+}
+
+/**
+ * The routing cost of walking `edgeId` from `fromId` (the exact value the route search adds for
+ * that step — the same internal function, for the worked example and its checks). Infinity when
+ * the step is not allowed (wrong direction, closed, burning).
+ */
+export function stepCost(graph: SimGraph, edgeId: string, fromId: string, config: SimulationConfig, fires: FireSource[] = [], time = 0,
+  reserved = new Map<string, number>(), excluded = new Set<string>()): number {
+  const { nodeMap, adj } = graphIndex(graph);
+  const arc = (adj.get(fromId) ?? []).find((item) => item.edge.id === edgeId);
+  return arc ? arcCost(arc, nodeMap, config, fires, time, reserved, excluded) : Infinity;
+}
+
+/** The parts of stepCost for the balanced preset (shown in the worked example; they add up to it). */
+export function stepCostTerms(graph: SimGraph, edgeId: string, fromId: string, config: SimulationConfig, fires: FireSource[] = [], time = 0,
+  reserved = new Map<string, number>()) {
+  const { nodeMap, adj } = graphIndex(graph);
+  const arc = (adj.get(fromId) ?? []).find((item) => item.edge.id === edgeId);
+  if (!arc) return null;
+  const risk = edgeRisk(arc.edge, nodeMap, fires, time);
+  const ambientTemperatureC = config.ambientTemperatureC ?? DEFAULT_AMBIENT_TEMPERATURE_C;
+  const heatAvoidThresholdC = config.heatAvoidThresholdC ?? DEFAULT_HEAT_AVOID_THRESHOLD_C;
+  const hardBlockTemperatureC = Math.max(heatAvoidThresholdC + 1, config.hardBlockTemperatureC ?? DEFAULT_HARD_BLOCK_TEMPERATURE_C);
+  const modeledTemperatureC = modeledTemperatureFromHeat(risk.heat, ambientTemperatureC);
+  const thermalBand = Math.max(0, (modeledTemperatureC - heatAvoidThresholdC) / Math.max(1, hardBlockTemperatureC - heatAvoidThresholdC));
+  const speed = Math.max(0.25, config.walkingSpeed * arc.edge.speedMultiplier);
+  const load = reserved.get(arc.edge.id) ?? 0;
+  const terms = {
+    distance: risk.navigationDistance, speed, travel: risk.navigationDistance / speed,
+    load, capacityPerSecond: arc.edge.capacityPerSecond, queueDelay: load / Math.max(0.1, arc.edge.capacityPerSecond),
+    density: load / Math.max(1, arc.edge.width * Math.max(4, arc.edge.distance)),
+    fire: risk.fire, heat: risk.heat, smoke: risk.smoke, modeledTemperatureC,
+    thermalPenalty: thermalBand * thermalBand * (config.thermalWeight ?? 2400), blocked: risk.blocked,
+  };
+  return { ...terms, from: arc.from, to: arc.to, edge: arc.edge };
 }
 
 function heuristic(node: SimNode, goals: SimNode[], preset: RoutingPreset) {
@@ -1015,7 +1067,13 @@ export function routeIsPhysicallyValid(graph: SimGraph, path: RoutePath,
   return true;
 }
 
-export function activeRoomPopulation(populationTarget: number): Array<{ room: RoomModuleDefinition; count: number }> {
+export function activeRoomPopulation(populationTarget: number, roomPopulation?: Record<string, number>): Array<{ room: RoomModuleDefinition; count: number }> {
+  if (roomPopulation) {
+    // Editor-set counts: whole people, never above a room's seats.
+    return ALL_CLASSROOMS
+      .map((room) => ({ room, count: Math.max(0, Math.min(room.capacity || CLASSROOM_CAPACITY, Math.round(Number(roomPopulation[room.id]) || 0))) }))
+      .filter(({ count }) => count > 0);
+  }
   const target = Math.max(0, Math.min(populationTarget, ALL_CLASSROOMS.length * CLASSROOM_CAPACITY));
   return ALL_CLASSROOMS
     .map((room, index) => ({ room, count: balancedOccupancyAt(index, target, ALL_CLASSROOMS.length) }))
@@ -1072,7 +1130,7 @@ export function allocatePopulation(
   const edgeMap = new Map(graph.edges.map((edge) => [edge.id, edge]));
   const goals = graph.nodes.filter((n) => n.type === "assembly").map((n) => n.id);
   const goalCapacities=new Map(graph.nodes.filter(n=>n.type==="assembly").map(n=>[n.id,n.capacity]));
-  const rooms = activeRoomPopulation(config.populationTarget).sort((a, b) => b.room.floor - a.room.floor);
+  const rooms = activeRoomPopulation(config.populationTarget, config.roomPopulation).sort((a, b) => b.room.floor - a.room.floor);
 
   for (const { room, count } of rooms) {
     // Generate alternatives to every assembly zone. Three alternatives per zone gives the

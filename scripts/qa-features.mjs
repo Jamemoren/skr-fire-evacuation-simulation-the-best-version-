@@ -96,7 +96,9 @@ mustText("src/simulation/simulationStore.ts", /FIRE_PATTERN_STORAGE_KEY/, "persi
 mustText("src/simulation/simulationStore.ts", /sanitizeStoredFireSource[\s\S]*finiteBetween[\s\S]*localStorage\.setItem[\s\S]*catch/, "validated and failure-safe local fire pattern storage");
 mustText("src/simulation/SimulationScene.tsx", /incapacitatedAt/, "animated fallen student pose");
 // Replaced by fixed-step simulation (FIXED_SIMULATION_DT); frames only choose how many steps run.
-mustText("src/simulation/SimulationScene.tsx", /evacuationRuntime\.advance\(Math\.min\(dt, 0\.1\) \* store\.speedFactor, maxSteps, budgetMs\)/, "frame-rate-independent fixed-step integration");
+// 2026-11-08: the speed fix lets a frame gap of up to 0.25 s count (was 0.1 s) and scales the step
+// budget with the chosen speed; integration is still fixed-step (runtime.advance → FIXED_SIMULATION_DT).
+mustText("src/simulation/SimulationScene.tsx", /const frameGap = [^\n]*Math\.min\(0\.25, delta\)[\s\S]*const wanted = frameGap \* speed;[\s\S]*evacuationRuntime\.advance\(wanted, maxSteps, budgetMs\)/, "frame-rate-independent fixed-step integration");
 mustText("src/simulation/runtime.ts", /FIXED_SIMULATION_DT = 0\.1[\s\S]*advance\(seconds: number[\s\S]*this\.stepFixed\(FIXED_SIMULATION_DT\)/, "fixed simulation step in the runtime");
 mustText("src/simulation/SimulationScene.tsx", /PER_AGENT_CAMERA_FRUSTUM[\s\S]*setFromProjectionMatrix[\s\S]*intersectsSphere/, "offscreen student instance compaction");
 mustText("src/simulation/graph.ts", /stairExitDoorId/, "shared stair-exit portal routing");

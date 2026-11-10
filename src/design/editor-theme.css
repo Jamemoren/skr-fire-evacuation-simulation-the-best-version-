@@ -129,7 +129,9 @@ body, button, input, select, textarea { font-family: var(--pi-font); }
 
 /* ---- Toasts: one stack, under the header, clear of the panels ------------------------- */
 .toast-stack { position: fixed; z-index: 140; top: 92px; right: 76px; left: auto; bottom: auto; display: grid; gap: var(--pi-2); width: min(380px, calc(100vw - 32px)); pointer-events: none; }
-.editor-workspace ~ .toast-stack, .app-shell.editor-workspace .toast-stack { top: 84px; right: 360px; }
+/* Editor: bottom-right of the 3D view, clear of the toolbar and the inspector; grows upward. */
+.editor-workspace ~ .toast-stack, .app-shell.editor-workspace .toast-stack { top: auto; bottom: 76px; right: 372px; max-height: none; overflow: visible; align-content: end; }
+.app-shell.editor-workspace .toast { color: var(--pi-text-on-dark); background: var(--pi-surface-command); font-size: var(--pi-fs-label); line-height: 1.5; }
 .toast {
   position: relative;
   display: block;

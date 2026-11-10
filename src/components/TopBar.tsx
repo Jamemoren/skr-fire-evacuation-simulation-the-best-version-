@@ -1,3 +1,4 @@
+import { SoundToggle } from "../audio/SoundToggle";
 import { useMemo, useRef } from "react";
 import { PROJECT_NAME_TH, PROJECT_SHORT_NAME_TH } from "../projectIdentity";
 import { DEFAULT_PEOPLE_PER_ROOM, TARGET_POPULATION } from "../constants";
@@ -84,7 +85,7 @@ export function TopBar({ onOpenGuide }: { onOpenGuide: () => void }) {
   };
 
   return (
-    <header className="topbar">
+    <header className="topbar" data-camera-inset="top">
       <div className="brand-block">
         <span className="brand-mark" title="ตราโรงเรียนสวนกุหลาบวิทยาลัย รังสิต">
           <img src="/assets/skr-school-emblem.png" alt="ตราโรงเรียนสวนกุหลาบวิทยาลัย รังสิต" />
@@ -122,6 +123,7 @@ export function TopBar({ onOpenGuide }: { onOpenGuide: () => void }) {
           </div>
         </details>
         <button type="button" className="button secondary" onClick={onOpenGuide} aria-haspopup="dialog">คู่มือการใช้เว็บ</button>
+        <SoundToggle className="button secondary" compact />
         <button type="button" className="icon-action" onClick={() => setShowShortcuts(true)} title="คีย์ลัด" aria-label="แสดงคีย์ลัด">⌨</button>
         <input ref={fileInputRef} hidden type="file" aria-label="นำเข้าไฟล์โปรเจกต์หรือโมเดล" accept=".skrproject,.glb,.json,application/json,model/gltf-binary" onChange={(event) => {
           void onImport(event.target.files?.[0]);

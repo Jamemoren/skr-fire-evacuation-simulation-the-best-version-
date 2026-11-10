@@ -4,6 +4,7 @@ import { useShallow } from "zustand/react/shallow";
 import { UiIcon } from "../components/UiIcon";
 import { UserGuide, type GuideTarget } from "../components/UserGuide";
 import { GuidedTour, type TourPanel } from "../components/GuidedTour";
+import type { Lesson } from "../guide/lessons";
 import { TouchWalkControls } from "../navigation/TouchWalkControls";
 import { useRoleplayStore } from "../roleplay/roleplayStore";
 import { useWalkStore } from "../navigation/walkStore";
@@ -41,17 +42,30 @@ const guidePanels: Record<GuideTarget, MobilePanel> = {
   run: "controls",
   results: "metrics",
   editor: "scene",
+  roleplay: "scene",
+  mobile: "scene",
+  present: "scene",
 };
 
 const COMPACT_QUERY = "(max-width: 1179px)";
 
 interface SimulationDashboardProps {
   tutorialActive: boolean;
+  /** The opening film is playing; the first-visit guide waits for it to finish. */
+  introActive?: boolean;
   onStartTutorial: () => void;
   onEndTutorial: () => void;
 }
 
-export function SimulationDashboard({ tutorialActive, onStartTutorial, onEndTutorial }: SimulationDashboardProps) {
+const GUIDE_SEEN_KEY = "skr-guide-seen";
+function guideSeen(): boolean {
+  // ?intro=0 / ?guide=0 (automated checks, presentations) skip the first-visit welcome.
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("guide") === "0" || params.get("intro") === "0") return true;
+  try { return window.localStorage.getItem(GUIDE_SEEN_KEY) === "1"; } catch { return true; }
+}
+
+export function SimulationDashboard({ tutorialActive, introActive = false, onStartTutorial, onEndTutorial }: SimulationDashboardProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const leftRef = useRef<HTMLElement>(null);
   const rightRef = useRef<HTMLElement>(null);
@@ -69,6 +83,25 @@ export function SimulationDashboard({ tutorialActive, onStartTutorial, onEndTuto
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("scene");
   const [sceneFocus, setSceneFocus] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  // First visit: open the guide once (welcome layout) after the opening film; keep the header
+  // button highlighted until the guide has been opened.
+  const [guideNew, setGuideNew] = useState(() => !guideSeen());
+  const [guideWelcome, setGuideWelcome] = useState(false);
+  /** A lesson being practised on the real screen, and the panel to return to afterwards. */
+  const [lessonTour, setLessonTour] = useState<{ lesson: Lesson; returnPanel: MobilePanel } | null>(null);
+  const [guideResume, setGuideResume] = useState(false);
+  const openGuide = useCallback((welcome = false, resume = false) => {
+    setGuideWelcome(welcome);
+    setGuideResume(resume);
+    setGuideOpen(true);
+    setGuideNew(false);
+    try { window.localStorage.setItem(GUIDE_SEEN_KEY, "1"); } catch { /* private mode */ }
+  }, []);
+  useEffect(() => {
+    if (!guideNew || introActive || tutorialActive) return undefined;
+    const timer = window.setTimeout(() => openGuide(true), 600);
+    return () => window.clearTimeout(timer);
+  }, [guideNew, introActive, tutorialActive, openGuide]);
   const walking = useWalkStore((s) => s.enabled);
   const touch = useQualityStore((s) => s.touch);
   const { status, placeFireMode, setPlaceFireMode } = useEvacuationStore(useShallow((s) => ({ status: s.status, placeFireMode: s.placeFireMode, setPlaceFireMode: s.setPlaceFireMode })));
@@ -223,7 +256,8 @@ export function SimulationDashboard({ tutorialActive, onStartTutorial, onEndTuto
         startBlock={startBlock}
         sceneFocus={sceneFocus}
         onToggleFocus={() => setSceneFocus(!sceneFocus)}
-        onOpenGuide={() => setGuideOpen(true)}
+        onOpenGuide={() => openGuide(false)}
+        guideNew={guideNew}
         onBlockedStart={revealReadiness}
         onStarted={closeSheet}
         mobileGuidanceOpen={mobileHost.open}
@@ -242,7 +276,7 @@ export function SimulationDashboard({ tutorialActive, onStartTutorial, onEndTuto
 
       <ControlPanel
         ref={leftRef}
-        open={prefs.left}
+        open={compact ? mobilePanel === "controls" : prefs.left}
         tab={controlTab}
         onTab={setControlTab}
         onToggle={() => setLeftOpen(!prefs.left)}
@@ -252,7 +286,7 @@ export function SimulationDashboard({ tutorialActive, onStartTutorial, onEndTuto
         onStartTutorial={onStartTutorial}
         onPlaceFire={closeSheet}
       />
-      <MonitorPanel ref={rightRef} open={prefs.right} tab={monitorTab} onTab={setMonitorTab} onToggle={() => setRightOpen(!prefs.right)} onClose={closeSheet} />
+      <MonitorPanel ref={rightRef} open={compact ? mobilePanel === "activity" : prefs.right} tab={monitorTab} onTab={setMonitorTab} onToggle={() => setRightOpen(!prefs.right)} onClose={closeSheet} />
       <ResultsBar ref={resultsRef} expanded={compact ? mobilePanel === "metrics" : resultsOpen} onToggle={() => (compact ? setMobilePanel(mobilePanel === "metrics" ? "scene" : "metrics") : setResultsOpen(!resultsOpen))} onClose={closeSheet} />
 
       {!compact && (
@@ -292,8 +326,12 @@ export function SimulationDashboard({ tutorialActive, onStartTutorial, onEndTuto
           />
         </Suspense>
       )}
-      <UserGuide open={guideOpen} onClose={() => setGuideOpen(false)} onPractice={practiceGuideStep} onStartTutorial={() => { setGuideOpen(false); onStartTutorial(); }} />
+      <UserGuide open={guideOpen} welcome={guideWelcome} resume={guideResume} onClose={() => { setGuideOpen(false); setGuideWelcome(false); }} onPractice={practiceGuideStep} onPracticeLesson={(lesson) => setLessonTour({ lesson, returnPanel: mobilePanel })} onStartTutorial={() => { setGuideOpen(false); onStartTutorial(); }} />
       {tutorialActive && <GuidedTour panel={mobilePanel} onPrepare={prepareTourPanel} onClose={onEndTutorial} />}
+      {lessonTour && !tutorialActive && lessonTour.lesson.practice && (
+        <GuidedTour key={lessonTour.lesson.id} panel={mobilePanel} steps={lessonTour.lesson.practice} title={`ลองทำ: ${lessonTour.lesson.label}`} onPrepare={prepareTourPanel}
+          onClose={() => { const back = lessonTour.returnPanel; setLessonTour(null); setMobilePanel(back); openGuide(false, true); }} />
+      )}
     </div>
   );
 }

@@ -43,6 +43,8 @@ export function fireHasStarted(fire: FireSource, time: number): boolean {
 interface Layout {
   signature: string;
   baseSignature: string;
+  /** Numeric copy of what baseSignature encodes, so the hot cache check builds no strings. */
+  key: { x: number; y: number; z: number; fireRadius: number };
   path?: Vec3[];
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number; minY: number; maxY: number };
   trail: { position: Vec3; distance: number }[];
@@ -51,12 +53,20 @@ interface Layout {
   fuelBounds?: [number, number, number, number];
 }
 const layouts = new WeakMap<FireSource, Layout>();
-const snapshots = new WeakMap<FireSource, { signature: string; values: Map<number, FlameCell[]> }>();
+const snapshots = new WeakMap<FireSource, {
+  layout: string; startTime: number; spreadTravelStartTime: number | undefined; intensity: number; spreadRate: number; floor: number;
+  values: Map<number, FlameCell[]>;
+}>();
 let layoutVersion = 0;
 
 function layoutFor(fire: FireSource): Layout {
-  const baseSignature = fire.position.join(",") + "|" + fire.fireRadius;
+  // Hot path (called per person, per fire, per step): compare numbers, not a joined string.
   const previous = layouts.get(fire);
+  const position = fire.position;
+  if (previous && previous.path === fire.spreadPath && previous.key.fireRadius === fire.fireRadius
+    && previous.key.x === position[0] && previous.key.y === position[1] && previous.key.z === position[2]
+    && position.length === 3) return previous;
+  const baseSignature = fire.position.join(",") + "|" + fire.fireRadius;
   if (previous?.baseSignature === baseSignature && previous.path === fire.spreadPath) return previous;
   const signature = baseSignature + "|" + ++layoutVersion;
   const trail: Layout["trail"] = [];
@@ -93,7 +103,7 @@ function layoutFor(fire: FireSource): Layout {
     else if (z > 4 && z < 52 && x > -3.48 && x <= .04) fuelBounds = [-3.48, .04, 4, 52];
   }
   const floors = [...new Set([fire.floor, ...path.map((p) => fireFloorAt(p[1],p))])];
-  const result = { signature, baseSignature, path: fire.spreadPath, bounds, trail, length, floors, fuelBounds };
+  const result = { signature, baseSignature, key: { x: position[0], y: position[1], z: position[2], fireRadius: fire.fireRadius }, path: fire.spreadPath, bounds, trail, length, floors, fuelBounds };
   layouts.set(fire, result);
   return result;
 }
@@ -118,10 +128,12 @@ export function fireMayAffectPoint(fire: FireSource, point: Vec3, margin = 0): b
 export function flameCellsAt(fire: FireSource, time: number): FlameCell[] {
   if (!fireHasStarted(fire, time)) return [];
   const layout = layoutFor(fire);
-  const signature = [layout.signature, fire.startTime, fire.spreadTravelStartTime, fire.intensity, fire.spreadRate, fire.floor].join("|");
   let cache = snapshots.get(fire);
-  if (!cache || cache.signature !== signature) {
-    cache = { signature, values: new Map() }; snapshots.set(fire, cache);
+  // Same invalidation as the joined signature, checked field by field (no string per call).
+  if (!cache || cache.layout !== layout.signature || cache.startTime !== fire.startTime || cache.spreadTravelStartTime !== fire.spreadTravelStartTime
+    || cache.intensity !== fire.intensity || cache.spreadRate !== fire.spreadRate || cache.floor !== fire.floor) {
+    cache = { layout: layout.signature, startTime: fire.startTime, spreadTravelStartTime: fire.spreadTravelStartTime, intensity: fire.intensity, spreadRate: fire.spreadRate, floor: fire.floor, values: new Map() };
+    snapshots.set(fire, cache);
   }
   const cached = cache.values.get(time);
   if (cached) { cache.values.delete(time); cache.values.set(time, cached); return cached; }

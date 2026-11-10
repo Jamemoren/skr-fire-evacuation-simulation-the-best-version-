@@ -53,6 +53,11 @@ const paths = {
   expand: "M4 9V4h5M20 9V4h-5M4 15v5h5m11-5v5h-5",
   target: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-5a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0-3.5v-1",
   speed: "M5 18a9 9 0 1 1 14 0M12 14l5-5M8 18h8",
+  soundOn: "M4 9h4l5-4v14l-5-4H4V9Zm12.5-.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12",
+  soundOff: "M4 9h4l5-4v14l-5-4H4V9Zm12 1 5 5m0-5-5 5",
+  present: "M3 4h18M4 4v11h16V4M12 15v3m-4 3 4-3 4 3M10 8.5v3l3-1.5-3-1.5Z",
+  list: "M9 6h11M9 12h11M9 18h11M4.5 6h.5m-.5 6h.5m-.5 6h.5",
+  skip: "m5 5 9 7-9 7V5Zm13 0v14",
 } as const;
 
 export type UiIconName = keyof typeof paths;

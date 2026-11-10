@@ -8,6 +8,7 @@ import { nodeBuilding, reportZoneOf } from "../simulation/agentPerception";
 import { hashString } from "../simulation/seededRandom";
 import type { SimEdge, SimGraph, SimNode } from "../simulation/types";
 import type { MapPackage, SensorInfo, SensorType } from "./protocol";
+import { BRIDGE_EDGE_ID, BRIDGE_LABEL_TH } from "../simulation/bridge";
 
 export const BUILDING_NAMES: Record<string, string> = {
   "building-1": "อาคาร 1",
@@ -111,9 +112,9 @@ function buildSensors(graph: SimGraph, buildingOf: Map<string, string>, zoneOf: 
     const zoneTag = node.id.replace(/^sim-stair-|^campus-/, "").replace(/-f\d+$/, "").toUpperCase().replace(/[^A-Z0-9]/g, "");
     add("manual-call-point", node, `${zoneTag}-MCP`, `จุดกดแจ้งเหตุ ${displayNodeName(node)}`);
   }
-  const bridgeEdge = graph.edges.find((edge) => edge.id === "campus-straight-bridge-level-4");
+  const bridgeEdge = graph.edges.find((edge) => edge.id === BRIDGE_EDGE_ID);
   const bridgeNode = bridgeEdge ? graph.nodes.find((node) => node.id === bridgeEdge.from) : undefined;
-  if (bridgeNode) add("heat", bridgeNode, "BRIDGE-HEAT", "ตรวจจับความร้อน ทางเชื่อมอาคาร 3–4 ชั้น 4 (ฝั่งอาคาร 3)");
+  if (bridgeNode) add("heat", bridgeNode, "BRIDGE-HEAT", `ตรวจจับความร้อน ${BRIDGE_LABEL_TH} (ฝั่งอาคาร 3)`);
   return sensors;
 }
 
@@ -210,7 +211,7 @@ export function passageGroups(registry = getMapRegistry()): PassageGroup[] {
     groups.push({ id: `b${building}-stair-${stair}`, label: `บันได ${stair + 1} อาคาร ${building}`, edgeIds: edges.filter((edge) => edge.id.startsWith(`campus-b${building}-stair-${stair}-down-`)).map((edge) => edge.id) });
     groups.push({ id: `b${building}-exit-${stair}`, label: `ทางออก ${stair + 1} อาคาร ${building}`, edgeIds: edges.filter((edge) => edge.id === `campus-b${building}-exit-door-${stair}`).map((edge) => edge.id) });
   }
-  groups.push({ id: "b34-bridge", label: "ทางเชื่อมอาคาร 3–4 ชั้น 4", edgeIds: edges.filter((edge) => edge.id === "campus-straight-bridge-level-4").map((edge) => edge.id) });
+  groups.push({ id: "b34-bridge", label: BRIDGE_LABEL_TH, edgeIds: edges.filter((edge) => edge.id === BRIDGE_EDGE_ID).map((edge) => edge.id) });
   return groups.filter((group) => group.edgeIds.length);
 }
 

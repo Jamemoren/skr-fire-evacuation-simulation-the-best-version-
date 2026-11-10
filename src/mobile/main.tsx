@@ -4,11 +4,15 @@ import "../design/tokens.css";
 import "./mobile.css";
 import { MobileApp } from "./MobileApp";
 import { createLiveSource, type MobileSource } from "./client";
+import { adoptParentBackend } from "../evac-local/backendRouter";
 
 const params = new URLSearchParams(window.location.search);
 const embedded = params.get("embed") === "1" && window.parent !== window;
 const joinCode = params.get("join");
 const checkpoint = params.get("cp");
+// Inside the dashboard the phone shares the dashboard's backend (server, or the in-browser one when
+// no server is running). A real phone keeps talking to the server directly.
+if (embedded) adoptParentBackend();
 
 function Root() {
   const [source, setSource] = useState<MobileSource | null>(null);

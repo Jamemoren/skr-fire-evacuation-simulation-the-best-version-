@@ -13,6 +13,7 @@
  */
 import { introClock } from "../components/intro/introTimeline";
 import { DEFAULT_INTRO_AUDIO, useIntroAudioSettings } from "./introAudioSettings";
+import { sound } from "./soundManager";
 
 export type IntroAudioStatus = "off" | "loading" | "blocked" | "playing" | "partial" | "error" | "unsupported";
 
@@ -186,9 +187,10 @@ class IntroAudioEngine {
   // ---------------------------------------------------------------- setup
   private prepare(fromGesture: boolean) {
     if (!this.ctx) {
-      const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!Ctor) { this.setStatus("unsupported"); return; }
-      try { this.ctx = new Ctor({ latencyHint: "interactive" }); } catch { this.setStatus("unsupported"); return; }
+      // The site's shared sound system owns the context (one switch, one autoplay unlock).
+      const shared = sound.acquire("intro");
+      if (!shared) { this.setStatus("unsupported"); return; }
+      this.ctx = shared.ctx;
       this.stats.contexts += 1;
       const ctx = this.ctx;
       this.master = ctx.createGain();
@@ -196,9 +198,9 @@ class IntroAudioEngine {
       this.sfxBus = ctx.createGain();
       this.musicBus.connect(this.master);
       this.sfxBus.connect(this.master);
-      this.master.connect(ctx.destination);
+      this.master.connect(shared.output);
       this.applySettings(true);
-      ctx.onstatechange = () => this.refreshStatus();
+      ctx.addEventListener("statechange", this.onStateChange);
     }
     if (!this.loading) this.loading = this.load();
     this.setStatus("loading");
@@ -347,18 +349,22 @@ class IntroAudioEngine {
   private close() {
     this.stopVoices(0.02);
     const ctx = this.ctx;
+    const master = this.master;
     this.ctx = null;
     this.master = this.musicBus = this.sfxBus = null;
     this.buffers.clear();
     this.loading = null;
     this.pending.clear();
     if (ctx) {
-      ctx.onstatechange = null;
-      void ctx.close().catch(() => undefined);
+      ctx.removeEventListener("statechange", this.onStateChange);
+      try { master?.disconnect(); } catch { /* already */ }
+      sound.release("intro"); // the shared context stays for the rest of the site
       this.stats.closes += 1;
     }
     this.setStatus(useIntroAudioSettings.getState().enabled ? "loading" : "off");
   }
+
+  private onStateChange = () => this.refreshStatus();
 
   // ---------------------------------------------------------------- the clock loop
   private tick = () => {

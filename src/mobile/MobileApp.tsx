@@ -359,6 +359,7 @@ function NavigateScreen({ state, view, actions, sheets, guide }: { state: Client
         <MiniMap map={state.map} buildingId={guide ? guide.place.buildingId : step.buildingId} floor={guide ? guide.place.floor : mapFloor} routeNodeIds={advice.nodeIds} currentNodeId={fix?.nodeId}
           targetNodeId={step.nodeIds[step.nodeIds.length - 1]} muted={!current}
           player={guide ? { x: guide.position[0], z: guide.position[2], headingDeg: guide.headingDeg } : null}
+          hazards={view.hazards ?? null}
           label={`แผนผัง${buildingName(state.map, guide ? guide.place.buildingId : step.buildingId)} ชั้น ${guide ? guide.place.floor : mapFloor} แสดงเส้นทางช่วงนี้`} />
       )}
       {upcoming.length > 0 && (
@@ -437,7 +438,7 @@ function OfflineScreen({ state, view }: { state: ClientState; view: ParticipantV
         <section className="m-card is-quiet">
           <h2>แผนผังอ้างอิงแบบออฟไลน์</h2>
           <p className="m-fine">{state.map.offlineNote} (แผนที่รุ่น {state.map.mapVersion})</p>
-          <MiniMap map={state.map} buildingId={fix.buildingId} floor={fix.floor} currentNodeId={fix.nodeId} muted label="แผนผังอ้างอิงแบบออฟไลน์" />
+          <MiniMap map={state.map} buildingId={fix.buildingId} floor={fix.floor} currentNodeId={fix.nodeId} muted hazards={view?.hazards ?? null} label="แผนผังอ้างอิงแบบออฟไลน์" />
         </section>
       )}
     </div>

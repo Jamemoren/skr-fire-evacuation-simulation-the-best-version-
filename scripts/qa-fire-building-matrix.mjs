@@ -26,7 +26,8 @@ try{
   cases.push({id:`b1-f1-exit-${zone}`,building:1,floor:1,kind:'exit',nodeId:`sim-stair-exit-door-${zone}`});
  }
  for(const building of [3,4])for(const [kind,nodeId] of [['corridor',`campus-b${building}-f1-gallery-5`],['stair',`campus-b${building}-stair-0-f1`],['exit',`campus-b${building}-exit-0`]])cases.push({id:`b${building}-f1-${kind}`,building,floor:1,kind,nodeId});
- cases.push({id:'b34-bridge',building:'3-4',floor:4,kind:'bridge',position:[-67,11.413106382978722,-39.98]});
+ // 2026-11-09: bridge on floor 3 (BLOCK_LEVELS[2] + 0.2 = 8.0638).
+ cases.push({id:'b34-bridge',building:'3-4',floor:3,kind:'bridge',position:[-67,8.063829787234042,-39.98]});
  const goals=setup.graph.nodes.filter(n=>n.type==='assembly').map(n=>n.id);
  const sampleRooms=setup.graph.nodes.filter(n=>n.type==='room'&&(process.env.MATRIX_ALL_ROOMS==='1'||(((n.id.startsWith('b1-')&&[2,5,9].includes(n.floor))||((n.id.startsWith('b3-')||n.id.startsWith('b4-'))&&[2,4].includes(n.floor)))&&(/pink-3$|blue-3$|room-5$/.test(n.id)))));
  assert(sampleRooms.length>=8);

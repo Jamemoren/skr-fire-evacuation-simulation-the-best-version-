@@ -1,3 +1,5 @@
+import { SoundToggle } from "../../audio/SoundToggle";
+import { OPEN_PRESENTATION_EVENT } from "../../present/presentEvents";
 import { useEffect, useId, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { PROJECT_CONTEXT_TH, PROJECT_DESCRIPTION_TH, PROJECT_METHOD_NOTE_TH, PROJECT_NAME_TH, PROJECT_SHORT_NAME_TH } from "../../projectIdentity";
@@ -17,6 +19,8 @@ interface CommandHeaderProps {
   sceneFocus: boolean;
   onToggleFocus: () => void;
   onOpenGuide: () => void;
+  /** Never opened the guide yet: highlight the button. */
+  guideNew?: boolean;
   onBlockedStart: () => void;
   onStarted: () => void;
   mobileGuidanceOpen: boolean;
@@ -90,9 +94,15 @@ function LiveStrip({ readiness, startBlock }: { readiness: OperationalReadinessR
 }
 
 export function RunControls({ startBlock, onBlockedStart, onStarted, compact = false }: { startBlock: StartBlock; onBlockedStart: () => void; onStarted: () => void; compact?: boolean }) {
-  const { status, speed, start, pause, resume, reset, setSpeed } = useEvacuationStore(useShallow((s) => ({
+  const { status, speed, start, pause, resume, reset, setSpeed, actualSpeed, population } = useEvacuationStore(useShallow((s) => ({
     status: s.status, speed: s.speedFactor, start: s.start, pause: s.pause, resume: s.resume, reset: s.reset, setSpeed: s.setSpeedFactor,
+    actualSpeed: s.actualSpeed, population: s.populationTarget,
   })));
+  // The menu sets a target; the computer may not reach it with many people. Say so instead of
+  // silently running slower than the number shown.
+  const limited = status === "running" && actualSpeed > 0 && actualSpeed < speed * 0.85;
+  const actualText = actualSpeed >= 10 ? Math.round(actualSpeed).toString() : actualSpeed.toFixed(1);
+  const limitTip = `เลือก ${speed}× แต่เครื่องนี้คำนวณได้จริงประมาณ ${actualText}× กับ ${population.toLocaleString("th-TH")} คน — ลดจำนวนคน (เช่น 1,500 หรือ 600) เพื่อเร่งได้มากขึ้น ผลการจำลองไม่เปลี่ยนตามความเร็ว`;
   const blocked = Boolean(startBlock) && (status === "idle" || status === "completed" || status === "paused");
   const reason = startBlockSummary(startBlock);
   const primary = status === "running"
@@ -119,21 +129,22 @@ export function RunControls({ startBlock, onBlockedStart, onStarted, compact = f
       <button type="button" className="pi-btn is-quiet-dark sw-run-reset" onClick={reset} aria-label="รีเซ็ตการจำลอง" data-tip="รีเซ็ตกลับก่อนเริ่ม">
         <UiIcon name="reset" size={18} />{!compact && <span>รีเซ็ต</span>}
       </button>
-      <label className="sw-speed" data-tip="ความเร็วการจำลอง">
+      <label className="sw-speed" data-tour="speed" data-tip="ความเร็วการจำลอง">
         <UiIcon name="speed" size={18} />
         <span className="pi-sr-only">ความเร็วการจำลอง</span>
         <select value={speed} onChange={(event) => setSpeed(Number(event.target.value))}>
           {SPEEDS.map((value) => <option key={value} value={value}>{value}×</option>)}
         </select>
+        {limited && <span className="sw-speed-actual" title={limitTip} role="status" aria-label={limitTip}>จริง {actualText}×</span>}
       </label>
     </div>
   );
 }
 
-export function CommandHeader({ compact, readiness, startBlock, sceneFocus, onToggleFocus, onOpenGuide, onBlockedStart, onStarted, mobileGuidanceOpen, onToggleMobileGuidance }: CommandHeaderProps) {
+export function CommandHeader({ compact, readiness, startBlock, sceneFocus, onToggleFocus, onOpenGuide, guideNew = false, onBlockedStart, onStarted, mobileGuidanceOpen, onToggleMobileGuidance }: CommandHeaderProps) {
   const setWorkMode = useEvacuationStore((s) => s.setWorkMode);
   return (
-    <header className="sw-header">
+    <header className="sw-header" data-camera-inset="top">
       <div className="sw-brand">
         <span className="sw-brand-mark"><img src="/assets/skr-school-emblem.png" alt="ตราโรงเรียนสวนกุหลาบวิทยาลัย รังสิต" /></span>
         <div className="sw-brand-copy">
@@ -145,9 +156,11 @@ export function CommandHeader({ compact, readiness, startBlock, sceneFocus, onTo
       <LiveStrip readiness={readiness} startBlock={startBlock} />
       {!compact && <RunControls startBlock={startBlock} onBlockedStart={onBlockedStart} onStarted={onStarted} />}
       <nav className="sw-header-actions" aria-label="คำสั่งทั่วไป">
-        <button type="button" className="pi-btn is-primary sw-roleplay-button" onClick={openRoleplay} data-tip="ควบคุมนักเรียน 1 คนแบบมุมมองบุคคลที่หนึ่ง เดินอพยพพร้อม NPC และดูมือถือนำทางของตัวเอง (SIMULATOR)"><UiIcon name="walk" size={18} /><span>สวมบทอพยพ</span></button>
-        <button type="button" className="pi-btn is-quiet-dark sw-mobile-guidance-button" aria-expanded={mobileGuidanceOpen} onClick={onToggleMobileGuidance} data-tip="ตัวอย่างหน้าจอมือถือ ระบบฝึกซ้อม และศูนย์ควบคุม"><UiIcon name="phone" size={18} /><span>ระบบนำทางมือถือ</span></button>
-        <button type="button" className="pi-btn is-quiet-dark sw-guide-button" onClick={onOpenGuide} aria-haspopup="dialog"><UiIcon name="guide" size={18} /><span>คู่มือ</span></button>
+        <button type="button" className="pi-btn is-primary sw-roleplay-button" data-guide-target="roleplay" onClick={openRoleplay} data-tip="ควบคุมนักเรียน 1 คนแบบมุมมองบุคคลที่หนึ่ง เดินอพยพพร้อม NPC และดูมือถือนำทางของตัวเอง (SIMULATOR)"><UiIcon name="walk" size={18} /><span>สวมบทอพยพ</span></button>
+        <button type="button" className="pi-btn is-quiet-dark sw-mobile-guidance-button" data-guide-target="mobile" aria-expanded={mobileGuidanceOpen} onClick={onToggleMobileGuidance} data-tip="ตัวอย่างหน้าจอมือถือ ระบบฝึกซ้อม และศูนย์ควบคุม"><UiIcon name="phone" size={18} /><span>ระบบนำทางมือถือ</span></button>
+        <button type="button" className={`pi-btn sw-guide-button${guideNew ? " is-new" : " is-highlight"}`} onClick={onOpenGuide} aria-haspopup="dialog" data-tip="คู่มือสอนใช้ทุกส่วนของเว็บ"><UiIcon name="guide" size={18} /><span>คู่มือ</span>{guideNew && <em className="sw-guide-badge">เริ่มที่นี่</em>}</button>
+        <button type="button" className="pi-btn sw-present-button" data-guide-target="present" onClick={() => window.dispatchEvent(new Event(OPEN_PRESENTATION_EVENT))} aria-haspopup="dialog" data-tip="เปิดชุดสไลด์นำเสนอเต็มจอ (ลูกศรเปลี่ยนฉาก · Esc ออก)"><UiIcon name="present" size={18} /><span>นำเสนอ</span></button>
+        <SoundToggle className="pi-btn is-quiet-dark" />
         <button type="button" className="pi-btn is-quiet-dark" aria-pressed={sceneFocus} onClick={onToggleFocus}><UiIcon name="expand" size={18} /><span>{sceneFocus ? "แสดงแผง" : "เต็มฉาก"}</span></button>
         <button type="button" className="pi-btn is-outline-dark" data-guide-target="editor" onClick={() => setWorkMode("editor")}><UiIcon name="pencil" size={18} /><span>แก้ไขแบบจำลอง</span></button>
       </nav>

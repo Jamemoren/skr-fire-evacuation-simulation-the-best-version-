@@ -108,7 +108,7 @@ export const ResultsBar = forwardRef<HTMLElement, ResultsBarProps>(function Resu
         ? `ยังไม่เสร็จ: ถึงจุดรวมพล ${fmtInt(m.arrived)} คน · ติดค้าง ${fmtInt(m.holding)} · ต้องช่วยเหลือ ${fmtInt(m.incapacitated)} — ไม่มีการนับคนที่ติดว่าอพยพสำเร็จ`
       : status === "paused" ? "หยุดชั่วคราว — ค่าทั้งหมดคงไว้ตามเวลาจำลอง" : "กำลังจำลอง — ค่าอัปเดตตามเวลาจริงของแบบจำลอง";
   return (
-    <section ref={ref} className={`sw-results${expanded ? " is-expanded" : ""} is-${status}`} aria-label="ผลการอพยพ" data-guide-target="results" tabIndex={-1} data-sheet="metrics">
+    <section ref={ref} className={`sw-results${expanded ? " is-expanded" : ""} is-${status}`} aria-label="ผลการอพยพ" data-guide-target="results" tabIndex={-1} data-sheet="metrics" data-camera-inset="bottom">
       <div className="sw-results-bar">
         <div className="sw-progress">
           <div className="sw-progress-label">
@@ -125,7 +125,7 @@ export const ResultsBar = forwardRef<HTMLElement, ResultsBarProps>(function Resu
           {m.holding > 0 && <div className="is-danger" title={m.stuckReasons[0]?.label}><dt>ติดค้าง</dt><dd className="pi-num">{fmtInt(m.holding)}</dd></div>}
           {m.incapacitated > 0 && <div className="is-danger"><dt>ต้องช่วยเหลือ</dt><dd className="pi-num">{fmtInt(m.incapacitated)}</dd></div>}
         </dl>
-        <button type="button" className="pi-btn is-quiet-dark sw-results-toggle" aria-expanded={expanded} aria-controls="sw-results-detail" onClick={onToggle}>
+        <button type="button" className="pi-btn is-quiet-dark sw-results-toggle" data-tour="results-detail" aria-expanded={expanded} aria-controls="sw-results-detail" onClick={onToggle}>
           <span>{expanded ? "ซ่อนรายละเอียด" : "รายละเอียด"}</span><UiIcon name={expanded ? "chevronDown" : "chevronUp"} size={18} />
         </button>
         <button type="button" className="pi-icon-btn is-on-dark sw-sheet-close" aria-label="ปิดแผง กลับไปดูโมเดล" onClick={onClose}><UiIcon name="close" /></button>

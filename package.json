@@ -24,6 +24,8 @@
     "qa:livelock": "node scripts/qa-hazard-livelock.mjs",
     "qa:layout": "node scripts/qa-layout-audit.mjs",
     "qa:scenarios": "node scripts/qa-scenario-sweep.mjs",
+    "qa:editor-scenario": "node scripts/qa-editor-scenario.mjs",
+    "qa:site-browser": "python3 scripts/qa-site-features.py",
     "qa:zigzag": "node scripts/qa-zigzag.mjs",
     "qa:survival": "node scripts/qa-survival-guard.mjs",
     "qa:fire-limit": "node scripts/qa-fire-spread-limit.mjs",
@@ -45,7 +47,10 @@
     "qa:phone-runtime": "node scripts/qa-phone-runtime.mjs",
     "qa:roleplay": "node scripts/qa-roleplay.mjs && node scripts/qa-roleplay-server.mjs",
     "qa:roleplay:browser": "python3 scripts/qa-roleplay-browser.py",
-    "perf:roleplay": "node scripts/perf-roleplay.mjs"
+    "perf:roleplay": "node scripts/perf-roleplay.mjs",
+    "qa:route-example": "node scripts/qa-route-example.mjs",
+    "presentation:results": "node scripts/presentation-results.mjs",
+    "qa:experience": "python3 scripts/qa-experience.py"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.0",

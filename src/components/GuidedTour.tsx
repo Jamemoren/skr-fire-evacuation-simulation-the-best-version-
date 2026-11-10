@@ -5,7 +5,19 @@ import "./guided-tour.css";
 
 export type TourPanel = "scene" | "controls" | "metrics" | "activity";
 
-const steps = [
+export interface TourStep {
+  target: string;
+  panel: TourPanel;
+  title: string;
+  description: string;
+  task?: string;
+  /** Polled while the step is open; true = the user has done what the step asks. */
+  done?: () => boolean;
+  /** Shown when the target is not on screen (e.g. a narrow phone layout hides it). */
+  fallback?: string;
+}
+
+export const BASIC_TOUR: TourStep[] = [
   {
     target: '[data-tour="building"]',
     panel: "scene",
@@ -53,7 +65,7 @@ const steps = [
     title: "ตามหาจุดที่คนรอสะสม",
     description: "แผงนี้แสดงชื่อจุดคอขวดและเวลารอ หากยังไม่มีรายการ ให้รอผลระหว่างจำลอง บนมือถือเปิดจาก “เหตุการณ์”",
   },
-] satisfies { target: string; panel: TourPanel; title: string; description: string; task?: string }[];
+];
 
 interface Bounds {
   left: number;
@@ -71,17 +83,22 @@ interface Layout {
 
 interface GuidedTourProps {
   panel: TourPanel;
+  /** Steps to walk through; defaults to the basic tour. */
+  steps?: TourStep[];
+  /** Label in the card header, e.g. the lesson's name. */
+  title?: string;
   onPrepare: (panel: TourPanel) => void;
   onClose: () => void;
 }
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
 
-export function GuidedTour({ panel, onPrepare, onClose }: GuidedTourProps) {
+export function GuidedTour({ panel, steps = BASIC_TOUR, title = "สอนใช้งาน", onPrepare, onClose }: GuidedTourProps) {
   const [index, setIndex] = useState(0);
   const [completed, setCompleted] = useState(false);
   const [acted, setActed] = useState(false);
   const [layout, setLayout] = useState<Layout | null>(null);
+  const [missing, setMissing] = useState(false);
   const cardRef = useRef<HTMLElement>(null);
   const targetRef = useRef<HTMLElement | null>(null);
   const step = steps[index];
@@ -89,6 +106,7 @@ export function GuidedTour({ panel, onPrepare, onClose }: GuidedTourProps) {
   useLayoutEffect(() => {
     if (!completed) onPrepare(step.panel);
     setActed(false);
+    setMissing(false);
     setLayout(null);
     const card = cardRef.current;
     if (!card) return;
@@ -218,10 +236,14 @@ export function GuidedTour({ panel, onPrepare, onClose }: GuidedTourProps) {
     measure();
     const settle = window.setTimeout(scheduleMeasure, 250);
     const settleAfterPanel = window.setTimeout(scheduleMeasure, 480);
+    const missingTimer = window.setTimeout(() => { if (!completed && !targetRef.current?.getBoundingClientRect().width) setMissing(true); }, 1500);
+    const donePoll = !completed && step.done ? window.setInterval(() => { try { if (step.done?.()) setActed(true); } catch { /* keep waiting */ } }, 300) : 0;
     return () => {
       cancelAnimationFrame(frame);
       window.clearTimeout(settle);
       window.clearTimeout(settleAfterPanel);
+      window.clearTimeout(missingTimer);
+      window.clearInterval(donePoll);
       resize.disconnect();
       mutation.disconnect();
       target?.removeEventListener("click", recordAction);
@@ -296,18 +318,19 @@ export function GuidedTour({ panel, onPrepare, onClose }: GuidedTourProps) {
         aria-describedby="tour-description" data-side={layout?.side} data-step={completed ? "complete" : index + 1}
         style={{ left: layout?.card.left ?? 12, top: layout?.card.top ?? 12, maxHeight: layout?.card.height, visibility: layout ? "visible" : "hidden" }}>
         <div className="guided-tour-card-top">
-          <span><UiIcon name={completed ? "guide" : "play"} /> {completed ? "เรียนรู้ครบแล้ว" : `สอนใช้งาน · ${index + 1} / ${steps.length}`}</span>
+          <span><UiIcon name={completed ? "guide" : "play"} /> {completed ? "เรียนรู้ครบแล้ว" : `${title} · ${index + 1} / ${steps.length}`}</span>
           <button type="button" className="guided-tour-close" onClick={onClose} aria-label="ออกจากบทเรียน"><UiIcon name="close" /></button>
         </div>
         <div className="guided-tour-progress" aria-hidden="true">
-          {steps.map((item, itemIndex) => <i key={item.target} className={completed || itemIndex <= index ? "is-filled" : ""} />)}
+          {steps.map((item, itemIndex) => <i key={`${item.target}-${itemIndex}`} className={completed || itemIndex <= index ? "is-filled" : ""} />)}
         </div>
         <div key={completed ? "complete" : index} className="guided-tour-content">
           <h2 id="tour-title" tabIndex={-1}>{completed ? "พร้อมลองด้วยตัวเองแล้ว" : step.title}</h2>
-          <p id="tour-description">{completed ? "คุณรู้จักปุ่มหลักครบแล้ว ลองเปลี่ยนแนวทางเลือกเส้นทาง แล้วสังเกตเวลาและคิวในรอบถัดไป เปิดบทเรียนนี้ซ้ำได้จากเมนูคู่มือ" : step.description}</p>
+          <p id="tour-description">{completed && title !== "สอนใช้งาน" ? "ทำครบทุกขั้นของบทนี้แล้ว กด “กลับไปใช้งานเว็บ” เพื่อกลับไปที่คู่มือบทเดิม" : completed ? "คุณรู้จักปุ่มหลักครบแล้ว ลองเปลี่ยนแนวทางเลือกเส้นทาง แล้วสังเกตเวลาและคิวในรอบถัดไป เปิดบทเรียนนี้ซ้ำได้จากเมนูคู่มือ" : step.description}</p>
           {!completed && (
             <div className={acted ? "guided-tour-task is-done" : "guided-tour-task"} role="status">
-              {layout?.locked ? "รอบปัจจุบันล็อกปุ่มนี้ไว้ กดขั้นถัดไปเพื่อเรียนรู้ต่อได้"
+              {missing && !acted ? (step.fallback ?? "ปุ่มนี้ไม่แสดงบนหน้าจอขณะนี้ (หน้าจอแคบหรือแผงถูกซ่อน) — อ่านคำอธิบายแล้วกดขั้นถัดไปได้")
+                : layout?.locked ? "รอบปัจจุบันล็อกปุ่มนี้ไว้ กดขั้นถัดไปเพื่อเรียนรู้ต่อได้"
                 : acted ? "✓ ลองกดแล้ว ไปขั้นถัดไปได้เลย"
                 : step.task ?? "สังเกตค่าที่ไฮไลต์ แล้วกดขั้นถัดไป"}
             </div>
@@ -317,7 +340,7 @@ export function GuidedTour({ panel, onPrepare, onClose }: GuidedTourProps) {
           {completed ? <button type="button" className="guided-tour-primary" onClick={onClose}>กลับไปใช้งานเว็บ →</button> : (
             <>
               <button type="button" disabled={index === 0} onClick={() => setIndex(index - 1)}>ย้อนกลับ</button>
-              <button type="button" className="guided-tour-primary" onClick={next}>{index === steps.length - 1 ? "เรียนครบแล้ว ✓" : "ขั้นถัดไป →"}</button>
+              <button type="button" className="guided-tour-primary" onClick={next}>{index === steps.length - 1 ? "เรียนครบแล้ว ✓" : acted || !step.done ? "ขั้นถัดไป →" : "ข้ามขั้นนี้ →"}</button>
             </>
           )}
         </div>

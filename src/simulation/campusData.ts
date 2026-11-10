@@ -1,6 +1,7 @@
 import { CLASSROOMS, TARGET_POPULATION, balancedOccupancyAt, type RoomModuleDefinition } from "../building1/building1Data";
 import type { Vec3 } from "./types";
 import { SITE_LAYOUT, type SiteLayout } from "../building1/siteLayout";
+import { BRIDGE_FLOOR } from "./bridge";
 
 export const BLOCK_SCALE=.416;
 export const BLOCK_CX=-9.367340088;
@@ -26,7 +27,7 @@ export const CAMPUS_ROOMS=campusRoomsFor(SITE_LAYOUT);
 export const ALL_CLASSROOMS: RoomModuleDefinition[]=[...CLASSROOMS.map(r=>({...r,buildingId:"building-1"})),...CAMPUS_ROOMS].map((r,i,a)=>({...r,peopleCount:balancedOccupancyAt(i,TARGET_POPULATION,a.length)}));
 export function campusBuildingAt(p:Vec3) {
   const building=CAMPUS_BUILDINGS.find(b=>Math.abs(p[0]-b.x)<42 && p[2]>b.z-10 && p[2]<b.z+10);
-  const onBridge=p[0]>-75.6 && p[0]<-48.4 && Math.abs(p[2]-(-43+BLOCK_GALLERY))<1.4 && p[1]>=BLOCK_LEVELS[3]-.4;
+  const onBridge=p[0]>-75.6 && p[0]<-48.4 && Math.abs(p[2]-(-43+BLOCK_GALLERY))<1.4 && p[1]>=BLOCK_LEVELS[BRIDGE_FLOOR-1]-.4 && (BRIDGE_FLOOR>=BLOCK_LEVELS.length || p[1]<BLOCK_LEVELS[BRIDGE_FLOOR]-.4);
   return building ?? (onBridge ? CAMPUS_BUILDINGS[0] : undefined);
 }
 export function campusFloorAt(p:Vec3):number|undefined {

@@ -80,14 +80,14 @@ export function ViewDock({ walking, onWalk, onStopWalk, onAfterCommand }: ViewDo
   return (
     <div className="sw-dock" role="toolbar" aria-label="มุมมองโมเดลโรงเรียน" data-guide-target="scene" tabIndex={-1}>
       <div className="sw-dock-group" role="group" aria-label="จัดกล้อง">
-        {(source === "generated" || source === "demo") && <><button type="button" className="sw-dock-btn" onClick={after(cmd.focusCampus)}><UiIcon name="campus" size={18} /><span>ทั้งแผนที่</span></button><button type="button" className="sw-dock-btn" aria-pressed={inspectingBuilding3 && buildingNumber===3} title="อาคาร 3 · 4 ชั้น ชั้นล่างเปิดโล่ง" onClick={after(cmd.focusBuilding3)}><UiIcon name="campus" size={18} /><span>อาคาร 3</span></button><button type="button" className="sw-dock-btn" aria-pressed={inspectingBuilding3 && buildingNumber===4} title="อาคาร 4 · เปิดดูได้ทั้ง 4 ชั้น" onClick={after(cmd.focusExtension)}><UiIcon name="campus" size={18} /><span>อาคาร 4</span></button><button type="button" className="sw-dock-btn" title="ทางเชื่อมอาคาร 3–4 ที่ชั้น 4" onClick={after(cmd.focusBridge)}><UiIcon name="layers" size={18} /><span>ทางเชื่อม</span></button><button type="button" className="sw-dock-btn" title="ฐานพระและศาลากลางลาน" onClick={after(cmd.focusShrine)}><UiIcon name="campus" size={18}/><span>ฐานพระ</span></button></>}
+        {(source === "generated" || source === "demo") && <><button type="button" className="sw-dock-btn" onClick={after(cmd.focusCampus)}><UiIcon name="campus" size={18} /><span>ทั้งแผนที่</span></button><button type="button" className="sw-dock-btn" aria-pressed={inspectingBuilding3 && buildingNumber===3} title="อาคาร 3 · 4 ชั้น ชั้นล่างเปิดโล่ง" onClick={after(cmd.focusBuilding3)}><UiIcon name="campus" size={18} /><span>อาคาร 3</span></button><button type="button" className="sw-dock-btn" aria-pressed={inspectingBuilding3 && buildingNumber===4} title="อาคาร 4 · เปิดดูได้ทั้ง 4 ชั้น" onClick={after(cmd.focusExtension)}><UiIcon name="campus" size={18} /><span>อาคาร 4</span></button><button type="button" className="sw-dock-btn" title="ทางเชื่อมอาคาร 3–4 ที่ชั้น 3" onClick={after(cmd.focusBridge)}><UiIcon name="layers" size={18} /><span>ทางเชื่อม</span></button><button type="button" className="sw-dock-btn" title="ฐานพระและศาลากลางลาน" onClick={after(cmd.focusShrine)}><UiIcon name="campus" size={18}/><span>ฐานพระ</span></button></>}
         <button type="button" className="sw-dock-btn" data-tour="building" onClick={after(cmd.focusBuilding)}><UiIcon name="campus" size={18} /><span>อาคาร</span></button>
         <button type="button" className="sw-dock-btn" onClick={after(cmd.focusField)}><UiIcon name="field" size={18} /><span>สนาม</span></button>
         <button type="button" className="sw-dock-btn" onClick={after(cmd.focusTop)}><UiIcon name="top" size={18} /><span>ด้านบน</span></button>
       </div>
       {inspectingBuilding3 && <label className="sw-dock-select"><UiIcon name="layers" size={18}/><select aria-label={"เปิดดูชั้นอาคาร "+buildingNumber} value={cutawayFloor} onChange={(e)=>{ const floor=Number(e.target.value);useBuilding3Store.getState().setCutawayFloor(floor);cmd.requestCameraFocus([buildingNumber===3?-112:-20,floor ? BLOCK_LEVELS[floor-1]+1.2 : 8,-43]); }}><option value="0">อาคาร {buildingNumber} · ทั้งอาคาร</option>{[1,2,3,4].map((floor)=><option key={floor} value={floor}>{floor===1 ? "ชั้น 1 · ใต้ถุนโล่ง" : `เปิดถึงชั้น ${floor}`}</option>)}</select></label>}
       <i className="sw-dock-rule" aria-hidden="true" />
-      <div className="pi-seg is-on-dark sw-dock-modes" role="radiogroup" aria-label="รูปแบบการแสดงอาคาร">
+      <div className="pi-seg is-on-dark sw-dock-modes" data-tour="view-modes" role="radiogroup" aria-label="รูปแบบการแสดงอาคาร">
         {VIEW_MODES.map((mode) => (
           <button key={mode.id} type="button" role="radio" aria-checked={building.viewMode === mode.id} className={building.viewMode === mode.id ? "is-active" : ""} onClick={() => setMode(mode.id)}>{mode.label}</button>
         ))}
@@ -123,7 +123,7 @@ export function ViewDock({ walking, onWalk, onStopWalk, onAfterCommand }: ViewDo
         <button type="button" className="sw-dock-btn" onClick={after(() => cmd.focusInterior(building.selectedFloor, true))}><UiIcon name="room" size={18} /><span>ห้องเรียน</span></button>
       )}
       <i className="sw-dock-rule" aria-hidden="true" />
-      <button type="button" className={`sw-dock-btn is-walk${walking ? " is-active" : ""}`} aria-pressed={walking} onClick={walking ? onStopWalk : onWalk}>
+      <button type="button" className={`sw-dock-btn is-walk${walking ? " is-active" : ""}`} data-tour="walk" aria-pressed={walking} onClick={walking ? onStopWalk : onWalk}>
         <UiIcon name="walk" size={18} /><span>{walking ? "ออกจากโหมดเดิน" : "เดินสำรวจ"}</span>
       </button>
     </div>

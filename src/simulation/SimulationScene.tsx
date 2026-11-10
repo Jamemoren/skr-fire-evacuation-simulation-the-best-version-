@@ -2,7 +2,7 @@ import { Line } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { evacuationRuntime } from "./runtime";
+import { evacuationRuntime, FIXED_SIMULATION_DT } from "./runtime";
 import { useEvacuationStore } from "./simulationStore";
 import { createStudentGeometry } from "./studentGeometry";
 import { useQualityStore } from "../rendering/qualityStore";
@@ -84,6 +84,8 @@ function AgentInstances() {
   const frameClock = useRef(0);
   const seenRevision = useRef(-1);
   const skipResumedFrame = useRef(false);
+  /** Achieved simulated seconds per real second, measured over ~1.5 s windows. */
+  const speedWindow = useRef({ wall: 0, sim: 0, speed: 0 });
   const lastSync = useRef(0);
   const lastVisualUpdate = useRef(0);
   const previousCameraProjection = useMemo(() => new THREE.Matrix4(), []);
@@ -136,10 +138,30 @@ function AgentInstances() {
       // bigger, different steps, so the outcome does not depend on FPS.
       // Faster playback may spend more of each frame on physics (the picture gets choppier but the
       // simulation really runs faster); 1× stays light so the view remains smooth.
+      //
+      // Previously each frame advanced at most 0.1 s × speed, ran ≤ 12 steps and spent ≤ 32 ms on
+      // physics. With many people one step alone takes longer than that, so ×5…×50 all ran one step
+      // per frame — the speed menu appeared to do nothing. Now the physics budget grows with the
+      // chosen speed (the picture gets choppier, the simulation really runs faster), a slow frame
+      // rate no longer cuts the speed (frame gap counted up to 0.25 s), and the achieved speed is
+      // measured and shown next to the menu when the computer cannot keep up.
       const speed = store.speedFactor;
-      const maxSteps = speed <= 1 ? 2 : speed <= 2 ? 3 : speed <= 5 ? 5 : speed <= 10 ? 8 : 12;
-      const budgetMs = speed <= 1 ? 12 : speed <= 2 ? 16 : speed <= 5 ? 24 : 32;
-      evacuationRuntime.advance(Math.min(dt, 0.1) * store.speedFactor, maxSteps, budgetMs);
+      const frameGap = dt > 0 && Number.isFinite(delta) && delta > 0 ? Math.min(0.25, delta) : 0;
+      const wanted = frameGap * speed;
+      const maxSteps = Math.max(2, Math.min(80, Math.ceil(wanted / FIXED_SIMULATION_DT) + 1));
+      const budgetMs = speed <= 1 ? 14 : speed <= 2 ? 18 : speed <= 5 ? 30 : speed <= 10 ? 45 : speed <= 25 ? 65 : 85;
+      const simBefore = evacuationRuntime.time;
+      evacuationRuntime.advance(wanted, maxSteps, budgetMs);
+      const measured = speedWindow.current;
+      if (measured.speed !== speed) { measured.speed = speed; measured.wall = 0; measured.sim = 0; }
+      measured.wall += Number.isFinite(delta) && delta > 0 ? Math.min(1, delta) : 0;
+      measured.sim += Math.max(0, evacuationRuntime.time - simBefore);
+      if (measured.wall >= 1.5) {
+        store.setActualSpeed(measured.sim / measured.wall);
+        measured.wall = 0; measured.sim = 0;
+      }
+    } else if (speedWindow.current.wall || speedWindow.current.sim) {
+      speedWindow.current = { wall: 0, sim: 0, speed: 0 };
     }
     const syncInterval = store.speedFactor >= 25 ? 0.55 : store.speedFactor >= 10 ? 0.42 : 0.3;
     if ((store.status === "running" || (evacuationRuntime.completed && store.status !== "completed"))

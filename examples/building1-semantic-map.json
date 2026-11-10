@@ -12890,9 +12890,9 @@
       "shape": "point",
       "name": "ทางออกขวา",
       "position": [
-        11,
+        -5.2,
         0.2,
-        48
+        49.5
       ],
       "rotation": [
         0,
@@ -30426,9 +30426,9 @@
     {
       "waypoints": [
         [
-          8,
+          2.5,
           0.2,
-          50
+          49.5
         ]
       ],
       "id": "edge-right-door-exit",
@@ -30444,14 +30444,14 @@
     {
       "waypoints": [
         [
-          12.8,
+          -6.5,
           0.22,
           50.5
         ],
         [
-          13.2,
+          -7,
           0.22,
-          62.5
+          62.6
         ],
         [
           -7.6,
@@ -30472,14 +30472,14 @@
     {
       "waypoints": [
         [
-          12.8,
+          -6.5,
           0.22,
           50.5
         ],
         [
-          13.2,
+          -7,
           0.22,
-          62.5
+          62.6
         ],
         [
           -1.6,
@@ -30500,14 +30500,14 @@
     {
       "waypoints": [
         [
-          12.8,
+          -6.5,
           0.22,
           50.5
         ],
         [
-          13.2,
+          -7,
           0.22,
-          62.5
+          62.6
         ],
         [
           4.4,
@@ -33803,9 +33803,9 @@
     },
     {
       "waypoints": [],
-      "id": "campus-straight-bridge-level-4",
-      "fromId": "campus-b3-f4-gallery-11",
-      "toId": "campus-b4-f4-gallery-0",
+      "id": "campus-straight-bridge-level-3",
+      "fromId": "campus-b3-f3-gallery-11",
+      "toId": "campus-b4-f3-gallery-0",
       "type": "walkway",
       "width": 2.5,
       "capacityPerSecond": 2.75,

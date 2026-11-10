@@ -197,7 +197,7 @@ export const MonitorPanel = forwardRef<HTMLElement, MonitorPanelProps>(function 
   const { bottlenecks, events } = useEvacuationStore(useShallow((s) => ({ bottlenecks: s.metrics.bottlenecks.length, events: s.events.length })));
   const counts: Record<MonitorTab, number | null> = { bottlenecks, floors: null, events, reasons: null };
   return (
-    <aside ref={ref} className={`sw-panel sw-panel-right${open ? " is-open" : " is-collapsed"}`} aria-label="ติดตามสถานการณ์" data-sheet="activity">
+    <aside ref={ref} className={`sw-panel sw-panel-right${open ? " is-open" : " is-collapsed"}`} aria-label="ติดตามสถานการณ์" data-sheet="activity" data-camera-inset="right">
       <div className="sw-rail" aria-hidden={open}>
         <button type="button" className="pi-icon-btn" tabIndex={open ? -1 : 0} aria-label="เปิดแผงติดตามสถานการณ์" data-tip="ติดตามสถานการณ์" data-tip-side="left" onClick={onToggle}><UiIcon name="panelRight" /></button>
         {TABS.map((item) => (

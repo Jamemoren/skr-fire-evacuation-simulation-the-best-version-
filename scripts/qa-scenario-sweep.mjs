@@ -22,8 +22,9 @@ process.env.NODE_PATH = resolve(here, "node_modules"); Module._initPaths();
 const require = createRequire(import.meta.url);
 const SECONDS = Number(process.env.SWEEP_SECONDS || 600);
 
-const B3F4_STAIRS = ["campus-b3-stair-access-0-f4", "campus-b3-stair-access-1-f4"];
-const BRIDGE = "campus-straight-bridge-level-4";
+// Bridge on floor 3: closing B3's floor-3 stair accesses sends floor-3 occupants over the bridge.
+const B3F3_STAIRS = ["campus-b3-stair-access-0-f3", "campus-b3-stair-access-1-f3"];
+const BRIDGE = "campus-straight-bridge-level-3";
 // fire: node id or explicit position; start (s, relative to alarm at 0; negative = already burning)
 const SCENARIOS = [
   { id: "b3-room", fires: [{ node: "b3-f3-room-5" }] },
@@ -40,10 +41,10 @@ const SCENARIOS = [
   { id: "b1-stair", fires: [{ node: "sim-stair-center-f5" }] },
   { id: "b1-exit", fires: [{ node: "sim-stair-exit-door-center" }] },
   { id: "two-fires-b1-b3", fires: [{ node: "sim-corr-pink-f5-b3" }, { node: "campus-b3-f3-gallery-5" }] },
-  // Bridge in use: both Building 3 floor-4 stair accesses closed, so floor-4 occupants must cross to Building 4.
-  { id: "bridge-in-use", closed: B3F4_STAIRS, population: 600 },
+  // Bridge in use: both Building 3 floor-3 stair accesses closed, so floor-3 occupants must cross to Building 4.
+  { id: "bridge-in-use", closed: B3F3_STAIRS, population: 600 },
   // …and the bridge catches fire 40 s after the alarm while people are on/near it.
-  { id: "bridge-fire-while-used", closed: B3F4_STAIRS, population: 600, fires: [{ bridge: true, start: 40 }] },
+  { id: "bridge-fire-while-used", closed: B3F3_STAIRS, population: 600, fires: [{ bridge: true, start: 40 }] },
   { id: "b1-left-exit-closed", closed: ["edge-left-stair-door"], fires: [{ node: "sim-stair-center-f5" }] },
   { id: "b3-corridor-pop600", fires: [{ node: "campus-b3-f3-gallery-5" }], population: 600 },
   { id: "b1-corridor-seed7", fires: [{ node: "sim-corr-pink-f5-b3" }], seed: 7 },

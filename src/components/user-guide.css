@@ -103,7 +103,7 @@
 .user-guide-note { margin-top: 16px; font-size: .82rem; }
 
 @keyframes guide-open { from { opacity: 0; } to { opacity: 1; } }
-@keyframes guide-step { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@keyframes guide-step { from { transform: translateY(5px); } to { transform: none; } }
 @keyframes guide-flow { to { stroke-dashoffset: -12; } }
 
 @media (max-width: 700px) {
@@ -131,3 +131,52 @@
 .user-guide-back { min-height: 44px; margin-bottom: 12px; padding: 8px 12px; border: 1px solid #cfd9e5; border-radius: 10px; color: #24554a; background: #fff; }
 @media (max-width: 700px) { .user-guide-choices { grid-template-columns: minmax(0, 1fr); } }
 @media (prefers-reduced-motion: reduce) { .user-guide-choice { transition: none; } }
+
+/* First visit: larger, centred welcome with both ways to learn and an explicit "skip". */
+.user-guide.is-welcome { width: min(980px, calc(100vw - 32px)); margin-inline: auto; box-shadow: 0 0 0 100vmax rgba(8, 18, 34, .55); }
+.user-guide.is-welcome .user-guide-hero { padding-block: 28px 24px; background: linear-gradient(135deg, #0f2d5c, #1f6fd1 60%, #2f9b8f); }
+.user-guide.is-welcome .user-guide-hero h2 { font-size: clamp(26px, 3.2vw, 36px); }
+.user-guide.is-welcome .user-guide-choice-tour { box-shadow: 0 0 0 3px rgba(255, 196, 61, .85), 0 14px 32px rgba(15, 45, 92, .22); }
+.user-guide-skip { justify-self: center; margin-top: 4px; padding: 8px 14px; border: 0; border-radius: 999px; color: var(--pi-text-2, #44516a); background: transparent; font: inherit; text-decoration: underline; cursor: pointer; }
+.user-guide-skip:hover { color: var(--pi-text, #13203a); }
+
+/* Reader: searchable contents + one lesson in four parts */
+.user-guide-reader { display: grid; grid-template-columns: minmax(220px, 290px) minmax(0, 1fr); gap: 18px; align-items: start; }
+.user-guide-toc { position: sticky; top: 12px; display: grid; gap: 8px; max-height: calc(100dvh - 24px); overflow: auto; padding: 12px; border: 1px solid #cfd9e5; border-radius: 16px; background: #fff; }
+.user-guide-toc .user-guide-back { margin: 0; }
+.user-guide-search input { width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid #b9c8d8; border-radius: 10px; font: inherit; background: #f8fbff; }
+.user-guide-search input:focus-visible { outline: 3px solid #127b72; outline-offset: 1px; }
+.user-guide-count { margin: 0; color: #45556b; font-size: .82rem; }
+.user-guide-progress { height: 6px; border-radius: 99px; background: #e3eaf2; overflow: hidden; }
+.user-guide-progress i { display: block; height: 100%; background: linear-gradient(90deg, #245da8, #22a8a2); }
+.user-guide-toc-group h3 { margin: 8px 4px 4px; color: #17675f; font-size: .78rem; letter-spacing: .04em; }
+.user-guide-toc-group ol { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.user-guide-toc-group button { display: grid; grid-template-columns: 26px 1fr auto; align-items: center; gap: 6px; width: 100%; min-height: 40px; padding: 6px 8px; border: 0; border-radius: 9px; background: transparent; color: #1d3a45; text-align: start; font: 600 .9rem/1.35 var(--pi-font, sans-serif); }
+.user-guide-toc-group button:hover { background: #eef5fb; }
+.user-guide-toc-group button[aria-current] { background: #def3ec; color: #144d46; }
+.user-guide-toc-group small { color: #5a6f7c; font-weight: 500; }
+.user-guide-parts { display: grid; gap: 12px; margin: 4px 0 14px; animation: guide-rise .28s ease-out; }
+@keyframes guide-rise { from { transform: translateY(6px); } to { transform: none; } }
+.user-guide-parts section { padding: 12px 14px; border-radius: 12px; background: #f5f8fc; }
+.user-guide-parts section.is-check { background: #e1f2ed; }
+.user-guide-parts h4 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: .98rem; color: #15345b; }
+.user-guide-parts h4 b { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #245da8; color: #fff; font-size: .8rem; }
+.user-guide-parts p { margin: 0; line-height: 1.65; color: #304e58; }
+.user-guide-parts ul { margin: 0; padding-inline-start: 1.3em; line-height: 1.65; color: #24504f; }
+.user-guide-lesson .rx, .user-guide-lesson .user-guide-demo { margin-top: 12px; }
+.user-guide-secondary { min-height: 44px; padding: 8px 12px; border: 1px solid #245da8; border-radius: 10px; color: #245da8; background: #fff; font-weight: 650; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 760px) {
+  .user-guide-reader { grid-template-columns: minmax(0, 1fr); }
+  .user-guide-toc { position: static; max-height: none; }
+  .user-guide-toc-group ol { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.user-guide-parts .user-guide-instructions { animation: none; }
+.user-guide-toc-toggle { display: none; }
+@media (max-width: 760px) {
+  .user-guide-toc-toggle { display: block; min-height: 44px; border: 1px solid #b9c8d8; border-radius: 10px; background: #f5f8fc; color: #15345b; font: 650 .92rem var(--pi-font, sans-serif); }
+  .user-guide-toc:not(.is-open) .user-guide-toc-group { display: none; }
+}
+
+/* Modal backdrop dims the app behind the guide (box-shadow above covers browsers without ::backdrop styling). */
+.user-guide::backdrop { background: rgba(8, 18, 34, .55); }

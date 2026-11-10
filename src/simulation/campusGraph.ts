@@ -1,6 +1,7 @@
 import { campusBuildingsFor, campusRoomsFor, BLOCK_LEVELS, BLOCK_GALLERY, BLOCK_STAIRS, campusStairPoints } from "./campusData";
 import type { SimGraph, SimNode, SimEdge, Vec3 } from "./types";
 import { SITE_LAYOUT, parkingApproach, type SiteLayout } from "../building1/siteLayout";
+import { BRIDGE_EDGE_ID, BRIDGE_FLOOR } from "./bridge";
 
 /** Same model-metre calibration as the shared block asset; every bend is an explicit waypoint. */
 export function appendCampusGraph(graph:SimGraph,layout:SiteLayout=SITE_LAYOUT):SimGraph {
@@ -39,9 +40,9 @@ export function appendCampusGraph(graph:SimGraph,layout:SiteLayout=SITE_LAYOUT):
       }
     }
   }
-  const gallery=(b:number,x:number)=>nodes.filter(n=>n.id.startsWith(`campus-b${b}-f4-gallery-`)).sort((a,c)=>Math.abs(a.position[0]-x)-Math.abs(c.position[0]-x))[0].id;
+  const gallery=(b:number,x:number)=>nodes.filter(n=>n.id.startsWith(`campus-b${b}-f${BRIDGE_FLOOR}-gallery-`)).sort((a,c)=>Math.abs(a.position[0]-x)-Math.abs(c.position[0]-x))[0].id;
   const leftBuilding=layout.buildingX[3]<layout.buildingX[4]?3:4,rightBuilding=leftBuilding===3?4:3;
-  edge('campus-straight-bridge-level-4',gallery(leftBuilding,-75.5),gallery(rightBuilding,-48.5),'corridor',2.5);
+  edge(BRIDGE_EDGE_ID,gallery(leftBuilding,-75.5),gallery(rightBuilding,-48.5),'corridor',2.5);
   node('campus-north-walk','ทางเดินหน้าตึก 3–4','gate',[layout.campusWalkX,.22,-25],0,'outdoor','outdoor',20);
   node('campus-parking-crossing','ทางข้ามถนนจอดรถ','gate',[-158,.22,-25],0,'outdoor','outdoor',12);
   for(const b of CAMPUS_BUILDINGS)for(let s=0;s<2;s++){

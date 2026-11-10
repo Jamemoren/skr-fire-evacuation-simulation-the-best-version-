@@ -8,6 +8,7 @@ import { PhoneFrame, PHONE_SIZES, type PhoneSize } from "./PhoneFrame";
 import { encodeQr, qrSvgPath } from "./qr";
 import { useStaffConnection } from "./staffClient";
 import { useBotPhoneBridge } from "./simBridge";
+import { useBackendMode } from "../evac-local/useBackendMode";
 import { useEvacuationStore } from "../simulation/simulationStore";
 import { evacuationRuntime } from "../simulation/runtime";
 import "../mobile/mobile.css";
@@ -460,6 +461,7 @@ function DeliveryDots({ row }: { row: ParticipantRow }) {
 
 function ControlCentre({ snapshot, map, call, run, onViewParticipant, viewingId }: { snapshot: StaffSnapshot | null; map: MapPackage | null; call: DemoProps["call"]; run: DemoProps["run"]; onViewParticipant: (id: string | null) => void; viewingId: string | null }) {
   const incident = snapshot?.incidents.find((candidate) => candidate.id === snapshot.activeIncidentId) ?? null;
+  const backendMode = useBackendMode();
   const joinUrl = incident ? `${window.location.origin}/mobile?join=${incident.joinCode}` : null;
   const nodeName = (id: string | null | undefined) => (id && map?.nodes.find((node) => node.id === id)?.name) || "—";
   const [countZone, setCountZone] = useState("");
@@ -481,6 +483,7 @@ function ControlCentre({ snapshot, map, call, run, onViewParticipant, viewingId 
               <p className="mh-link"><a href={joinUrl} target="_blank" rel="noreferrer">{joinUrl}</a></p>
               <p className="mh-muted">QR นี้มีเพียงลิงก์และรหัสรอบ ไม่มีรหัสเจ้าหน้าที่ มือถือต้องอยู่ในเครือข่ายเดียวกับเครื่องนี้ {window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" ? "— ตอนนี้เปิดผ่าน localhost มือถือจะเปิดลิงก์นี้ไม่ได้ ให้เปิดเว็บด้วย IP ของเครื่อง" : ""}</p>
               {incident.mode === "simulation" && <p className="mh-warn">โหมดสถานการณ์จำลองไม่รับมือถือจริง — สร้างรอบฝึกซ้อมเพื่อทดสอบกับมือถือ</p>}
+              {backendMode === "browser" && <p className="mh-warn">ตอนนี้ระบบทำงานในเบราว์เซอร์นี้เท่านั้น (ไม่มีเซิร์ฟเวอร์) มือถือเครื่องอื่นจึงยังเข้าร่วมด้วย QR นี้ไม่ได้ ใช้มือถือจำลองในหน้านี้ได้ตามปกติ หากต้องการให้มือถือจริงเข้าร่วม ให้รัน <code>npm run server:lan</code> แล้วเปิดหน้านี้ใหม่</p>}
             </div>
           </div>
         </section>
@@ -681,7 +684,8 @@ export function MobileGuidanceHost({ mode, open, compact, onMode, onClose, panel
   const readonlySource = useMemo(() => (readonlyView ? createReadonlySource(readonlyView.view, map, readonlyView.at) : null), [readonlyView, map]);
   const viewingRow = snapshot?.participants.find((row) => row.participantId === viewingId) ?? null;
 
-  const statusLine = connection.status === "online" ? "เชื่อมต่อศูนย์ข้อมูลแล้ว" : connection.status === "no-backend" ? "ยังไม่พบเซิร์ฟเวอร์ (npm run server)" : connection.status === "need-token" ? "ต้องใส่รหัสเจ้าหน้าที่" : connection.status === "offline" ? "ขาดการเชื่อมต่อเซิร์ฟเวอร์" : "กำลังเชื่อมต่อ…";
+  const backendMode = useBackendMode();
+  const statusLine = connection.status === "online" && backendMode === "browser" ? "จำลองในเบราว์เซอร์ · ไม่ต้องรันเซิร์ฟเวอร์" : connection.status === "online" ? "เชื่อมต่อศูนย์ข้อมูลแล้ว" : connection.status === "no-backend" ? "ยังไม่พบเซิร์ฟเวอร์ (npm run server)" : connection.status === "need-token" ? "ต้องใส่รหัสเจ้าหน้าที่" : connection.status === "offline" ? "ขาดการเชื่อมต่อเซิร์ฟเวอร์" : "กำลังเชื่อมต่อ…";
   const demoProps: DemoProps = { snapshot, map, call, previewParticipantId, networkOnline, setNetwork, run, autoWalk };
 
   return (

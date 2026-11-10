@@ -12,7 +12,7 @@ const require=createRequire(import.meta.url);
 process.env.NODE_PATH=resolve(root,"node_modules");Module._initPaths();
 try {
   execFileSync(process.execPath,[resolve(root,"node_modules/typescript/bin/tsc"),"--outDir",temp,"--target","ES2022","--module","CommonJS","--moduleResolution","Node","--esModuleInterop","--skipLibCheck",
-    "src/simulation/runtime.ts","src/simulation/semanticGraph.ts","src/simulation/operationalReadiness.ts","src/utils/portableProject.ts"],{cwd:root,stdio:"pipe"});
+    "src/simulation/runtime.ts","src/simulation/semanticGraph.ts","src/simulation/operationalReadiness.ts","src/utils/portableProject.ts","src/building1/campusBlockWalls.ts"],{cwd:root,stdio:"pipe"});
   const {createEvacuationGraph,findPath,routeIsPhysicallyValid}=require(join(temp,"simulation/graph.js"));
   const {CAMPUS_ROOMS,ALL_CLASSROOMS,CAMPUS_BUILDINGS,BLOCK_LEVELS,BLOCK_GALLERY}=require(join(temp,"simulation/campusData.js"));
   const {studentStartPosition}=require(join(temp,"simulation/studentPlacement.js"));
@@ -20,6 +20,8 @@ try {
   const {buildGeneratedSemanticMap}=require(join(temp,"simulation/semanticGraph.js"));
   const {evaluateOperationalReadiness}=require(join(temp,"simulation/operationalReadiness.js"));
   const {encodeProject,decodeProject,validateMap}=require(join(temp,"utils/portableProject.js"));
+  const {rebuildBlockEndWalls}=require(join(temp,"building1/campusBlockWalls.js"));
+  const {BRIDGE_FLOOR}=require(join(temp,"simulation/bridge.js"));
   const graph=createEvacuationGraph(),nodes=new Map(graph.nodes.map(n=>[n.id,n]));
   assert.equal(nodes.size,graph.nodes.length);
   assert.equal(new Set(graph.edges.map(e=>e.id)).size,graph.edges.length);
@@ -34,11 +36,12 @@ try {
     const path=findPath(graph,r.id,goals,config,[],0);
     assert(path&&routeIsPhysicallyValid(graph,path),"Reachable goal from "+r.id);
   }
-  const bridge=graph.edges.find(e=>e.id==="campus-straight-bridge-level-4");
+  // 2026-11-09: the bridge is on floor 3 (was modelled on floor 4). Same checks, new floor.
+  const bridge=graph.edges.find(e=>e.id==="campus-straight-bridge-level-3");
   const a=nodes.get(bridge.from),b=nodes.get(bridge.to);
-  assert.equal(a.position[1],b.position[1]);assert.equal(a.position[2],b.position[2]);assert.equal(a.floor,4);
+  assert.equal(a.position[1],b.position[1]);assert.equal(a.position[2],b.position[2]);assert.equal(a.floor,3);
   const blocked=new Set(graph.edges.filter(e=>e.id.startsWith("campus-b3-stair-")&&e.kind==="stair").map(e=>e.id));
-  const escape=findPath(graph,"b3-f4-room-1",graph.nodes.filter(n=>n.type==="assembly").map(n=>n.id),config,[],0,new Map(),blocked);
+  const escape=findPath(graph,"b3-f3-room-1",graph.nodes.filter(n=>n.type==="assembly").map(n=>n.id),config,[],0,new Map(),blocked);
   assert(escape?.edgeIds.includes(bridge.id),"Blocked Building 3 stairs can use the straight bridge");
 
   // Independent triangle raycasts, not only graph's own envelope checks.
@@ -46,10 +49,11 @@ try {
   assert.equal(raw.readUInt32LE(8),raw.length);
   const {scene:prototype}=await new GLTFLoader().parseAsync(raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength),"");
   const scene=new THREE.Group();
-  for(const building of CAMPUS_BUILDINGS){const copy=prototype.clone(true);copy.position.set(building.x,0,building.z);scene.add(copy);}
+  // Same end walls as the 3D view (bridge opening on floor 3, inner end only).
+  for(const building of CAMPUS_BUILDINGS){const copy=prototype.clone(true);rebuildBlockEndWalls(THREE,copy,building.number===3?1:-1);copy.position.set(building.x,0,building.z);scene.add(copy);}
   function slab(p,s){const mesh=new THREE.Mesh(new THREE.BoxGeometry(...s),new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));mesh.position.set(...p);scene.add(mesh);}
   for(const building of CAMPUS_BUILDINGS)slab([building.x,.03,building.z],[84,.12,29]);
-  slab([-62,BLOCK_LEVELS[3]-.12,-43+BLOCK_GALLERY],[27,.24,2.7]);
+  slab([-62,BLOCK_LEVELS[BRIDGE_FLOOR-1]-.12,-43+BLOCK_GALLERY],[27,.24,2.7]);
   scene.traverse(o=>{if(o.isMesh)for(const m of Array.isArray(o.material)?o.material:[o.material])m.side=THREE.DoubleSide;});scene.updateMatrixWorld(true);
   const ray=new THREE.Raycaster();let samples=0;
   // These rays catch the missing head/end walls reported in the reference screenshots.
@@ -131,7 +135,7 @@ try {
   const hazardRuntime=new EvacuationRuntime();
   assert.equal(hazardRuntime.addFire([SHRINE_CENTER[0],6,SHRINE_CENTER[2]]).floor,0,"Shrine is an outdoor site feature");
   assert.equal(hazardRuntime.addFire([-194,.2,25]).floor,0,"Parking fire is outdoors");
-  const bridgeFire=hazardRuntime.addFire([-67,BLOCK_LEVELS[3]+.2,-43+BLOCK_GALLERY]);
-  assert.equal(bridgeFire.floor,4);assert(Math.abs(bridgeFire.position[1]-BLOCK_LEVELS[3])<.05,"Bridge fire stays on the fourth-floor deck");
+  const bridgeFire=hazardRuntime.addFire([-67,BLOCK_LEVELS[2]+.2,-43+BLOCK_GALLERY]);
+  assert.equal(bridgeFire.floor,3);assert(Math.abs(bridgeFire.position[1]-BLOCK_LEVELS[2])<.05,"Bridge fire stays on the floor-3 deck");
   console.log(JSON.stringify({passed:true,rooms:144,campusRooms:48,nodes:graph.nodes.length,edges:graph.edges.length,geometrySamples:samples,portableBytes:blob.size,population,arrived:m.arrived,elapsed:m.elapsed,topologyViolations:m.topologyViolations}));
 } finally {rmSync(temp,{recursive:true,force:true});}

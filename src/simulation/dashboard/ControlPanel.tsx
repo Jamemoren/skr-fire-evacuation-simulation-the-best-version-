@@ -8,7 +8,7 @@ import { useMapperStore } from "../../store";
 import { useEvacuationStore } from "../simulationStore";
 import { evacuationRuntime } from "../runtime";
 import type { OperationalReadinessReport } from "../operationalReadiness";
-import { fmtInt, STATUS_LABEL, type ControlTab, type StartBlock } from "./dashboardModel";
+import { alignEditorMapToModel, fmtInt, STATUS_LABEL, useEditorAnalysis, type ControlTab, type StartBlock } from "./dashboardModel";
 import { repairSimulationWorkspace } from "../../utils/projectFiles";
 import { loadSimulationBackup, type ProjectBackup } from "../../utils/idb";
 import { downloadBlob } from "../../utils/download";
@@ -21,6 +21,7 @@ const TABS: Array<{ id: ControlTab; label: string; icon: UiIconName }> = [
 
 function ReadinessCard({ readiness, startBlock, onOpenEditor }: { readiness: OperationalReadinessReport | null; startBlock: StartBlock; onOpenEditor: () => void }) {
   const projectBusy = useMapperStore((state) => state.projectBusy);
+  const editorAnalysis = useEditorAnalysis();
   const [repairing, setRepairing] = useState(false);
   const [backup, setBackup] = useState<ProjectBackup | null>(null);
   const [error, setError] = useState("");
@@ -58,9 +59,19 @@ function ReadinessCard({ readiness, startBlock, onOpenEditor }: { readiness: Ope
           <p className="sw-repair-help">ระบบจะบันทึกผังเดิมเป็นไฟล์ .skrproject พร้อม node/edge และ Calibration ก่อนใช้ผังมาตรฐาน คุณสามารถนำไฟล์สำรองกลับมาแก้ไขต่อได้</p>
           <div className="sw-repair-actions">
             <button type="button" className="pi-btn is-primary is-sm" disabled={repairing || projectBusy} onClick={() => void repair()}>{repairing ? "กำลังสำรองและเตรียมผัง…" : "สำรองผังเดิมและใช้ผังมาตรฐาน"}</button>
+            {editorAnalysis.driftCount > 0 && <button type="button" className="pi-btn is-secondary is-sm" disabled={repairing || projectBusy} onClick={() => alignEditorMapToModel()}>จัดให้ตรงโมเดลจริง ({editorAnalysis.driftCount} รายการ)</button>}
             <button type="button" className="pi-btn is-secondary is-sm" disabled={repairing || projectBusy} onClick={onOpenEditor}><UiIcon name="pencil" size={16} />แก้ไขผังเดิม</button>
           </div>
         </>
+      )}
+      {!startBlock && (editorAnalysis.applied.length > 0 || editorAnalysis.notes.length > 0) && (
+        <div className="sw-editor-applied">
+          <strong>ใช้การแก้ไขจากหน้าแก้ไขโมเดล</strong>
+          <ul>{editorAnalysis.applied.map((line) => <li key={line}>{line}</li>)}</ul>
+          {editorAnalysis.notes.length > 0 && <ul className="sw-editor-notes">{editorAnalysis.notes.map((line) => <li key={line}>{line}</li>)}</ul>}
+          {editorAnalysis.driftCount > 0 && <button type="button" className="pi-btn is-secondary is-sm" onClick={() => alignEditorMapToModel()}>จัดให้ตรงโมเดลจริง ({editorAnalysis.driftCount} รายการ)</button>}
+          <button type="button" className="pi-btn is-secondary is-sm" onClick={onOpenEditor}><UiIcon name="pencil" size={16} />แก้ไขต่อในหน้าแก้ไข</button>
+        </div>
       )}
       {startBlock?.kind === "failed" && (
         <ol className="sw-fix-list">
@@ -128,7 +139,7 @@ function ScenarioTab({ locked, onPlaceFire }: { locked: boolean; onPlaceFire: ()
         </div>
         <input id="sw-population" className="pi-range" type="range" aria-label="จำนวนคนจำลอง" style={{ "--fill": `${fill}%` } as CSSProperties} disabled={locked} min="40" max={TARGET_POPULATION} step="20" value={s.population} onChange={(e) => s.setPopulation(Number(e.target.value))} />
         <div className="pi-range-scale" aria-hidden="true"><span>40</span><span>3,000 คน</span></div>
-        <p className="pi-help">กระจายประชากร 144 ห้องในอาคาร 1, 3 และ 4 · ใช้บันได ทางเชื่อมชั้น 4 และจุดรวมพล 2 พื้นที่</p>
+        <p className="pi-help">กระจายประชากร 144 ห้องในอาคาร 1, 3 และ 4 · ใช้บันได ทางเชื่อมชั้น 3 และจุดรวมพล 2 พื้นที่</p>
       </section>
 
       <section className="sw-section" aria-labelledby="sw-sec-route">
@@ -159,7 +170,7 @@ function ScenarioTab({ locked, onPlaceFire }: { locked: boolean; onPlaceFire: ()
           <h3 id="sw-sec-fire"><span className="sw-step">03</span>ไฟและควัน</h3>
           <span className={`pi-chip ${primary ? "is-risk" : "is-neutral"}`}><UiIcon name="fire" size={14} />{primary} ต้นเพลิง{burning ? ` · ${burning} ลุกลาม` : ""}{travelling ? ` · ${travelling} กำลังลาม` : ""}</span>
         </header>
-        <button type="button" className={`pi-btn is-block ${s.placeFireMode ? "is-risk" : "is-secondary"}`} aria-pressed={s.placeFireMode} onClick={() => { s.setPlaceFireMode(!s.placeFireMode); if (!s.placeFireMode) onPlaceFire(); }}>
+        <button type="button" data-tour="place-fire" className={`pi-btn is-block ${s.placeFireMode ? "is-risk" : "is-secondary"}`} aria-pressed={s.placeFireMode} onClick={() => { s.setPlaceFireMode(!s.placeFireMode); if (!s.placeFireMode) onPlaceFire(); }}>
           <UiIcon name={s.placeFireMode ? "target" : "plus"} size={18} />{s.placeFireMode ? "คลิกบนโมเดลเพื่อวางจุดไฟ… (กดอีกครั้งเพื่อยกเลิก)" : "วางจุดไฟบนโมเดล"}
         </button>
         <div className="pi-chip-row" role="group" aria-label="ตำแหน่งไฟสำเร็จรูป">
@@ -181,7 +192,7 @@ function ScenarioTab({ locked, onPlaceFire }: { locked: boolean; onPlaceFire: ()
           <h3 id="sw-sec-closed"><span className="sw-step">04</span>ทางที่ถูกปิด</h3>
           <span className={`pi-chip ${s.closed.length ? "is-risk" : "is-neutral"}`}><UiIcon name="lock" size={14} />{s.closed.length ? `ปิด ${s.closed.length}` : "เปิดทั้งหมด"}</span>
         </header>
-        <details className="pi-disclosure" open={s.closed.length > 0 || undefined}>
+        <details className="pi-disclosure" data-tour="closures" open={s.closed.length > 0 || undefined}>
           <summary>เลือกบันได ทางออก หรือทางเชื่อมที่ใช้ไม่ได้</summary>
           <div className="pi-check-grid sw-closures" role="group" aria-label="ทางที่ถูกปิด">
             {passages.map((group) => (
@@ -344,7 +355,7 @@ export const ControlPanel = forwardRef<HTMLElement, ControlPanelProps>(function 
   const setWorkMode = useEvacuationStore((s) => s.setWorkMode);
   const locked = status === "running" || status === "paused";
   return (
-    <aside ref={ref} className={`sw-panel sw-panel-left${open ? " is-open" : " is-collapsed"}`} aria-label="ตั้งค่าการจำลอง" data-sheet="controls">
+    <aside ref={ref} className={`sw-panel sw-panel-left${open ? " is-open" : " is-collapsed"}`} aria-label="ตั้งค่าการจำลอง" data-sheet="controls" data-camera-inset="left">
       <div className="sw-rail" aria-hidden={open}>
         <button type="button" className="pi-icon-btn" tabIndex={open ? -1 : 0} aria-label="เปิดแผงตั้งค่า" data-tip="เปิดแผงตั้งค่า" data-tip-side="right" onClick={onToggle}><UiIcon name="panelLeft" /></button>
         {TABS.map((item) => (

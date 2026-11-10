@@ -264,7 +264,7 @@ export function InspectorPanel() {
   const selectionEditor = selectedObjectId ? <ObjectEditor /> : selected ? <AnnotationEditor annotation={selected} /> : selectedConnection ? <ConnectionEditor connection={selectedConnection} /> : null;
 
   return (
-    <aside className="right-panel panel">
+    <aside className="right-panel panel" data-camera-inset="right">
       <div className="editor-inspector-heading"><span className="editor-brand-eyebrow">คุณสมบัติและรายการ</span><h2>{selected?.name ?? (selectedObject ? objectEdits[selectedObject.id]?.name ?? selectedObject.name : selectedConnection ? "เส้นทางที่เลือก" : "จัดการโมเดลของคุณ")}</h2><p>{annotations.length} ตำแหน่ง <span>·</span> {connections.length} เส้นทาง <span>·</span> {modelObjects.length} วัตถุ</p></div>
       <div className="panel-tabs editor-tabs" aria-label="ส่วนแก้ไขโมเดล">
         <button type="button" className={tab === "selected" ? "is-active" : ""} onClick={() => setTab("selected")}>ข้อมูล</button>

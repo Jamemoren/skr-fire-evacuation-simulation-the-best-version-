@@ -22,6 +22,9 @@ import { ConnectionsLayer } from "./ConnectionsLayer";
 import { DemoCampus } from "./DemoCampus";
 import { MeasurementLayer } from "./MeasurementLayer";
 import { ModelLayer } from "./ModelLayer";
+import { registerModelSurface } from "../simulation/modelPhysics";
+import { registerAppFocusCanceller, syncCameraRig } from "../camera/cameraDirector";
+import { StoryOverlay3D } from "../present/StoryOverlay3D";
 import { DaylightEnvironment } from "./DaylightEnvironment";
 import { CINEMATIC_INTRO_END_FOV } from "./cinematicConfig";
 import { CinematicIntroScene } from "./intro/CinematicIntroScene";
@@ -30,6 +33,7 @@ import { introClock } from "./intro/introTimeline";
 import { SimulationScene } from "../simulation/SimulationScene";
 import { useEvacuationStore } from "../simulation/simulationStore";
 import { useBuilding1Store } from "../building1/building1Store";
+import { useBuilding3Store } from "../building1/building3Store";
 import { useQualityStore } from "../rendering/qualityStore";
 import { QUALITY_PRESETS } from "../rendering/qualityPolicy";
 import { usePageVisible } from "../rendering/usePageVisible";
@@ -38,6 +42,7 @@ import { useWalkStore } from "../navigation/walkStore";
 import { STAIR_ZONE_CENTERS } from "../building1/building1Data";
 import { WalkCameraController } from "../navigation/WalkCameraController";
 import { RoleplayController, RoleplaySpawnMarker } from "../roleplay/RoleplayController";
+import { RoleplayRouteLine } from "../roleplay/RoleplayRouteLine";
 import { useRoleplayStore } from "../roleplay/roleplayStore";
 
 /** The old walk mode or the roleplay character owns the camera (orbit, focus and Ctrl look stand down). */
@@ -252,6 +257,7 @@ function CameraController({ cinematicIntro = false }: { cinematicIntro?: boolean
   const appliedFocus = useRef(false);
   const focusSize = useRef({ width: 0, height: 0 });
   const focusMotion = useRef<{ from: THREE.Vector3; to: THREE.Vector3; fromTarget: THREE.Vector3; toTarget: THREE.Vector3; startedAt: number } | null>(null);
+  useEffect(() => { registerAppFocusCanceller(() => { focusMotion.current = null; }); return () => registerAppFocusCanceller(null); }, []);
   const firstPersonLook = useRef({
     active: false,
     pointerId: -1,
@@ -525,6 +531,9 @@ function CameraController({ cinematicIntro = false }: { cinematicIntro?: boolean
     }
   });
 
+  // The demo and presentation camera director drives this camera and these controls.
+  useFrame(() => syncCameraRig(camera, orbitRef.current as never, gl.domElement));
+
   useFrame(() => {
     const motion = focusMotion.current;
     if (!motion) return;
@@ -704,6 +713,18 @@ function SceneContents({ cinematicIntro = false }: { cinematicIntro?: boolean })
   const addSimulationFire = useEvacuationStore((state) => state.addFire);
   const calibratedRootRef = useRef<THREE.Group | null>(null);
   const surfaceRootRef = useRef<THREE.Group | null>(null);
+  // The model editor checks moved nodes and new passages against the walls and floors drawn here.
+  useEffect(() => {
+    // Captured only from the full view: all floors, walls shown, nothing exploded or cut away,
+    // and Buildings 3/4 loaded.
+    registerModelSurface(surfaceRootRef.current, () => {
+      const b1 = useBuilding1Store.getState(), b3 = useBuilding3Store.getState(), root = surfaceRootRef.current;
+      if (!root || b1.viewMode !== "exterior" || b1.explodeFloors || !b1.showInteriorWalls || b3.cutawayFloor !== 0) return false;
+      const loaded = (name: string) => { let meshes = 0; root.getObjectByName(name)?.traverse((object) => { if ((object as THREE.Mesh).isMesh) meshes += 1; }); return meshes > 10; };
+      return loaded("BUILDING_3") && loaded("BUILDING_4");
+    });
+    return () => registerModelSurface(null);
+  }, []);
 
   const tapStart = useRef<{ id: number; x: number; y: number } | null>(null);
   const pointers = useRef(new Set<number>());
@@ -805,6 +826,8 @@ function SceneContents({ cinematicIntro = false }: { cinematicIntro?: boolean })
         {workMode === "editor" && !focusMode && <EditorGizmos calibratedRoot={calibratedRootRef} />}
         {!modelUrl && modelKind === "generated" && <SimulationScene />}
         <RoleplaySpawnMarker />
+        <RoleplayRouteLine />
+        <StoryOverlay3D />
       </group>
       <CameraController cinematicIntro={cinematicIntro} />
       <ViewportFrame />

@@ -4,6 +4,7 @@ import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useMapperStore } from "../store";
 import { BLOCK_LEVELS } from "../simulation/campusData";
+import { rebuildBlockEndWalls } from "./campusBlockWalls";
 import { BUILDING3_MODEL_URL, BUILDING3_POSITION } from "./campusExtensionData";
 import { useBuilding3Store } from "./building3Store";
 import type { Vec3 } from "../types";
@@ -16,14 +17,9 @@ export function ClassroomBlock({ number, position }: { number: 3 | 4; position: 
   const gl = useThree(s => s.gl);
   const { copy, materials, capGeometry } = useMemo(() => {
     const copy = scene.clone(true), materials: THREE.Material[] = [];
-    // The bridge uses the inner end; close the unused outer portal with matching plaster.
-    const capGeometry=new THREE.BoxGeometry(.28,14.1-(BLOCK_LEVELS[3]+.025),2.75);
-    let facade: THREE.Material | undefined;
-    copy.traverse(o=>{if(o instanceof THREE.Mesh){const m=Array.isArray(o.material)?o.material:[o.material];facade??=m.find(m=>m.name==="Reference pink facade");}});
-    const cap=new THREE.Mesh(capGeometry,facade);
-    cap.name="COMPLETE_OUTER_END_WALL";
-    cap.position.set(number===3?-38:38,(14.1+BLOCK_LEVELS[3]+.025)/2,3.025);
-    copy.add(cap);
+    // Bridge on floor 3, inner end only: rebuild the asset's end walls (see campusBlockWalls.ts).
+    const created=rebuildBlockEndWalls(THREE,copy,number===3?1:-1);
+    const capGeometry={dispose:()=>created.forEach(g=>g.dispose())};
     copy.traverse(o => { if (o instanceof THREE.Mesh) {
       const clone = (m: THREE.Material) => {
         const c=m.clone();

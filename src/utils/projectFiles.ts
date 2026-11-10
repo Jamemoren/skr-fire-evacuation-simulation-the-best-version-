@@ -13,6 +13,8 @@ import { clearModelFile, loadModelFile, saveModelFile, saveSimulationBackup, typ
 import { sha256File } from "./hash";
 import { decodeProject, encodeProject, validateMap } from "./portableProject";
 import type { SemanticMapFile } from "../types";
+import { BRIDGE_EDGE_ID } from "../simulation/bridge";
+import { walkY } from "../simulation/graph";
 
 let busy = false;
 let restored: Promise<void> | null = null;
@@ -254,11 +256,42 @@ function geometrySignature(map: SemanticMapFile, includeWaypoints = true): strin
   });
 }
 const templateSignature = geometrySignature(buildGeneratedSemanticMap());
+/**
+ * Before 2026-11-09 the B3–B4 bridge was modelled on floor 4. Saved copies of those standard maps
+ * are the same map with the bridge connection on the floor-4 galleries; they upgrade like any other
+ * exact earlier standard map (custom edits never do).
+ */
+function withFloor4Bridge(map: SemanticMapFile): SemanticMapFile {
+  const edge = map.connections.find((connection) => connection.id === BRIDGE_EDGE_ID);
+  if (!edge) return map;
+  const floor4 = (id: string) => id.replace(/-f\d+-gallery-/, "-f4-gallery-");
+  return { ...map, connections: map.connections.map((connection) => connection === edge
+    ? { ...connection, id: "campus-straight-bridge-level-4", fromId: floor4(connection.fromId), toId: floor4(connection.toId) } : connection) };
+}
+/**
+ * Before 2026-11-09 the right ground-floor exit point stood east of Building 1's sealed rear wall
+ * (reached through it). Saved standard maps carry that point and its two approach paths.
+ */
+function withOldRightExit(map: SemanticMapFile): SemanticMapFile {
+  return {
+    ...map,
+    annotations: map.annotations.map((node) => node.id === "sim-exit-right" ? { ...node, position: [11, 0.2, 48] } : node),
+    connections: map.connections.map((edge) => {
+      if (edge.id === "edge-right-door-exit") return { ...edge, waypoints: [[8, walkY(1), 50]] };
+      if (edge.id.startsWith("edge-right-field-gate")) return { ...edge, waypoints: [[12.8, 0.22, 50.5], [13.2, 0.22, 62.5], ...(edge.waypoints ?? []).slice(-1)] };
+      return edge;
+    }),
+  };
+}
 const previousTemplateSignatures = new Set([
-  geometrySignature(buildGeneratedSemanticMap(false,PREVIOUS_SITE_LAYOUT,true,true)),
-  geometrySignature(buildGeneratedSemanticMap(true,PREVIOUS_SITE_LAYOUT,true,true)),
-  geometrySignature(buildGeneratedSemanticMap(true,SITE_LAYOUT,false,true)),
-]);
+  buildGeneratedSemanticMap(false,PREVIOUS_SITE_LAYOUT,true,true),
+  buildGeneratedSemanticMap(true,PREVIOUS_SITE_LAYOUT,true,true),
+  buildGeneratedSemanticMap(true,SITE_LAYOUT,false,true),
+  buildGeneratedSemanticMap(true,SITE_LAYOUT,true,true),
+  buildGeneratedSemanticMap(),
+].flatMap((map) => [map, withFloor4Bridge(map), withOldRightExit(map), withOldRightExit(withFloor4Bridge(map))])
+  .map((map) => geometrySignature(map))
+  .filter((signature) => signature !== templateSignature));
 const previousDoorCenterSignature = geometrySignature(buildGeneratedSemanticMap(true,SITE_LAYOUT,true,true));
 function canUpgradeSimulationProject(map: SemanticMapFile): boolean {
   return isUneditedGeneratedProject(map) && (geometrySignature(map) === previousDoorCenterSignature

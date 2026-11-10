@@ -3,6 +3,7 @@ import { TARGET_POPULATION } from "../building1/building1Data";
 import { evacuationRuntime } from "./runtime";
 import { normalizeStudentPopulation } from "./studentPlacement";
 import { finiteBetween } from "../utils/numbers";
+import type { EditorScenario } from "./editorScenario";
 import type { CrowdBehavior, DecisionMode, FireSource, RoutingPreset, SimulationConfig, SimulationEvent, SimulationMetrics, SimulationStatus, Vec3 } from "./types";
 
 export type WorkMode = "simulation" | "editor";
@@ -54,12 +55,51 @@ function loadFirePattern(): StoredFireSource[] {
 function persistFirePattern(fires: FireSource[]) {
   if (typeof window === "undefined") return;
   const pattern: StoredFireSource[] = fires
-    .filter((fire) => fire.origin === "primary")
+    .filter((fire) => fire.origin === "primary" && !fire.sourceMarkerId)
     .map(({ position, intensity, fireRadius, smokeRadius, spreadRate }) => ({ position, intensity, fireRadius, smokeRadius, spreadRate }));
   try {
     window.localStorage.setItem(FIRE_PATTERN_STORAGE_KEY, JSON.stringify(pattern));
   } catch {
     // Private mode, storage quotas, and browser policy must not break a live drill.
+  }
+}
+
+/**
+ * The model editor's scenario (fire markers, no-go areas, closed passages, people per room). The
+ * dashboard registers the source, so this store does not depend on the editor's store.
+ */
+let editorScenarioSource: (() => EditorScenario | null) | null = null;
+export function setEditorScenarioSource(source: (() => EditorScenario | null) | null) { editorScenarioSource = source; }
+let appliedEditorClosures = new Set<string>();
+
+/**
+ * Apply the editor scenario now (only while no run is active): e.g. after the editor demo is
+ * cleaned up, its fire and closures disappear at once instead of at the next start.
+ */
+export function refreshEditorScenario() {
+  if (useEvacuationStore.getState().status === "running" || useEvacuationStore.getState().status === "paused") return;
+  applyEditorScenario(editorScenarioSource?.() ?? null);
+  useEvacuationStore.setState((state) => ({
+    fires: [...evacuationRuntime.fires],
+    closedPassages: evacuationRuntime.passageGroups().filter((group) => group.closed).map((group) => group.id),
+    snapshotToken: state.snapshotToken + 1,
+  }));
+}
+
+/** Bring the runtime's editor-made fires and closures in line with the editor (before a run starts). */
+function applyEditorScenario(scenario: EditorScenario | null) {
+  const closures = new Set(scenario ? [...scenario.disabledEdgeIds, ...scenario.restricted.flatMap((area) => area.edgeIds)] : []);
+  const reopen = [...appliedEditorClosures].filter((edgeId) => !closures.has(edgeId));
+  if (reopen.length) evacuationRuntime.setPassageClosed(reopen, false);
+  const add = [...closures].filter((edgeId) => !appliedEditorClosures.has(edgeId));
+  if (add.length) evacuationRuntime.setPassageClosed(add, true);
+  appliedEditorClosures = closures;
+  const wanted = new Map((scenario?.fires ?? []).map((fire) => [fire.id, fire]));
+  for (const fire of [...evacuationRuntime.fires]) {
+    if (fire.sourceMarkerId && !wanted.has(fire.sourceMarkerId)) evacuationRuntime.removeFire(fire.id);
+  }
+  for (const fire of wanted.values()) {
+    if (!evacuationRuntime.fires.some((existing) => existing.sourceMarkerId === fire.id)) evacuationRuntime.addFire([...fire.position], { sourceMarkerId: fire.id });
   }
 }
 
@@ -113,6 +153,8 @@ interface EvacuationState {
   events: SimulationEvent[];
   snapshotToken: number;
   renderFps: number;
+  /** Measured simulated seconds per real second while running (0 = not measured yet). */
+  actualSpeed: number;
   setWorkMode: (mode: WorkMode) => void;
   setSpeedFactor: (speed: number) => void;
   setPopulationTarget: (count: number) => void;
@@ -143,6 +185,7 @@ interface EvacuationState {
   clearFires: () => void;
   syncFromRuntime: () => void;
   setRenderFps: (value: number) => void;
+  setActualSpeed: (value: number) => void;
 }
 
 export const useEvacuationStore = create<EvacuationState>((set, get) => ({
@@ -181,11 +224,12 @@ export const useEvacuationStore = create<EvacuationState>((set, get) => ({
   events: [...evacuationRuntime.events],
   snapshotToken: 0,
   renderFps: 0,
+  actualSpeed: 0,
   setWorkMode: (workMode) => {
     if (workMode === "editor" && get().status === "running") get().pause();
     set({ workMode });
   },
-  setSpeedFactor: (speedFactor) => set((state) => ({ speedFactor: finiteBetween(speedFactor, state.speedFactor, .25, 50) })),
+  setSpeedFactor: (speedFactor) => set((state) => ({ speedFactor: finiteBetween(speedFactor, state.speedFactor, .25, 50), actualSpeed: 0 })),
   setPopulationTarget: (populationTarget) => set((state) => state.status === "running" || state.status === "paused"
     ? state : { populationTarget: normalizeStudentPopulation(populationTarget) }),
   setPreset: (preset) => set({ preset }),
@@ -248,6 +292,11 @@ export const useEvacuationStore = create<EvacuationState>((set, get) => ({
       decisionMode: state.decisionMode,
       seed: state.seed,
     };
+    const scenario = editorScenarioSource?.() ?? null;
+    applyEditorScenario(scenario);
+    if (scenario?.roomPopulation) config.roomPopulation = scenario.roomPopulation;
+    if (scenario?.graphEdits) config.graphEdits = scenario.graphEdits;
+    if (scenario) config.editorClosedEdgeIds = [...scenario.disabledEdgeIds, ...scenario.restricted.flatMap((area) => area.edgeIds)];
     evacuationRuntime.start(config);
     set({ status: "running", metrics: evacuationRuntime.getMetrics(), fires: [...evacuationRuntime.fires], events: [...evacuationRuntime.events], snapshotToken: get().snapshotToken + 1, placeFireMode: false });
   },
@@ -261,7 +310,7 @@ export const useEvacuationStore = create<EvacuationState>((set, get) => ({
     evacuationRuntime.resume();
     set({ status: evacuationRuntime.completed ? "completed" : evacuationRuntime.running ? "running" : "idle" });
   },
-  reset: () => { evacuationRuntime.reset(true); set({ status: "idle", placeFireMode: false, metrics: EMPTY_METRICS, events: [...evacuationRuntime.events], fires: [...evacuationRuntime.fires], snapshotToken: get().snapshotToken + 1 }); },
+  reset: () => { evacuationRuntime.reset(true); set({ actualSpeed: 0, status: "idle", placeFireMode: false, metrics: EMPTY_METRICS, events: [...evacuationRuntime.events], fires: [...evacuationRuntime.fires], snapshotToken: get().snapshotToken + 1 }); },
   addFire: (position) => {
     evacuationRuntime.addFire(position);
     persistFirePattern(evacuationRuntime.fires);
@@ -274,6 +323,12 @@ export const useEvacuationStore = create<EvacuationState>((set, get) => ({
   },
   removeFire: (id) => { evacuationRuntime.removeFire(id); persistFirePattern(evacuationRuntime.fires); set({ fires: [...evacuationRuntime.fires], snapshotToken: get().snapshotToken + 1 }); },
   clearFires: () => { evacuationRuntime.clearFires(); persistFirePattern([]); set({ fires: [], events: [...evacuationRuntime.events], snapshotToken: get().snapshotToken + 1 }); },
+  setActualSpeed: (value) => set((state) => {
+    if (!Number.isFinite(value) || value < 0) return state;
+    const next = Math.round(value * 10) / 10;
+    // Avoid re-rendering the header for jitter below ~5%.
+    return state.actualSpeed > 0 && Math.abs(next - state.actualSpeed) <= state.actualSpeed * 0.05 ? state : { actualSpeed: next };
+  }),
   setRenderFps: (renderFps) => set((state) => {
     if (!Number.isFinite(renderFps)) return state;
     const next = Math.max(0, Math.round(renderFps));

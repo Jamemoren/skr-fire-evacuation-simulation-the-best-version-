@@ -4,7 +4,6 @@
  * closures, route advice with revisions, delivery acknowledgements, occupancy estimates and an
  * append-only event log. Pure logic — HTTP and SSE live in index.ts.
  */
-import { randomBytes } from "node:crypto";
 import { getMapRegistry, passageGroups, passageLabel, displayNodeName, zoneLabel, type MapRegistry } from "../src/evac/mapRegistry";
 import { buildManeuvers } from "../src/evac/maneuvers";
 import {
@@ -123,10 +122,22 @@ export interface SimBotAdvice {
 const isRouteStatus = (status: AdviceStatus | null | undefined) => status === "ok" || status === "stale-location";
 const emptyDelivery = (): Record<DeliveryStage, number | null> => ({ accepted: null, sent: null, received: null, viewed: null, confirmed: null });
 
-function token(bytes = 24) { return randomBytes(bytes).toString("hex"); }
+/**
+ * Cryptographic random bytes. Uses Web Crypto (browser and Node ≥ 19); the Node server also
+ * injects node:crypto through setRandomSource so older runtimes keep working. The service has no
+ * other platform dependency, so the same code runs on the server and in the in-browser backend.
+ */
+let randomSource: (count: number) => Uint8Array = (count) => {
+  const cryptoApi = (globalThis as { crypto?: { getRandomValues?: (array: Uint8Array) => Uint8Array } }).crypto;
+  if (!cryptoApi?.getRandomValues) throw new Error("ไม่มีตัวสุ่มที่ปลอดภัย (Web Crypto) ในสภาพแวดล้อมนี้");
+  return cryptoApi.getRandomValues(new Uint8Array(count));
+};
+export function setRandomSource(source: (count: number) => Uint8Array) { randomSource = source; }
+export function randomHex(bytes = 24) { return [...randomSource(bytes)].map((b) => b.toString(16).padStart(2, "0")).join(""); }
+function token(bytes = 24) { return randomHex(bytes); }
 function shortCode() {
   const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-  const bytes = randomBytes(6);
+  const bytes = randomSource(6);
   return [...bytes].map((b) => alphabet[b % alphabet.length]).join("");
 }
 
@@ -792,7 +803,8 @@ export class IncidentService {
 
   // ------------------------------------------------------------------ routing
 
-  constraintsFor(incident: Incident, exclude?: Participant): RoutingConstraints {
+  /** Passages a measured hazard (sensor alarm, or the 3D simulation's fire for simulation rounds) makes impassable or risky. */
+  private hazardEdges(incident: Incident) {
     const hazardBlocked = new Set<string>();
     const hazardMargin = new Map<string, number>();
     for (const sensor of incident.sensors.values()) {
@@ -814,6 +826,31 @@ export class IncidentService {
         else if (near <= HAZARD_MARGIN_RADIUS_M) hazardMargin.set(edge.id, Math.max(hazardMargin.get(edge.id) ?? 0, HAZARD_MARGIN_SECONDS));
       }
     }
+    if (incident.mode === "simulation" && incident.simWorld) {
+      incident.simWorld.blocked.forEach((edgeId) => hazardBlocked.add(edgeId));
+      incident.simWorld.margins.forEach((seconds, edgeId) => hazardMargin.set(edgeId, Math.max(hazardMargin.get(edgeId) ?? 0, seconds)));
+    }
+    return { hazardBlocked, hazardMargin };
+  }
+
+  /**
+   * What the phone draws on its plan during an incident: passages the system knows are unsafe
+   * (sensor/simulation hazard) or closed by staff. Same sources the router avoids; cached per
+   * hazard/closure revision because every participant view includes it.
+   */
+  private hazardMapCache = new WeakMap<Incident, { key: string; value: NonNullable<ParticipantView["hazards"]> }>();
+  hazardMap(incident: Incident): NonNullable<ParticipantView["hazards"]> {
+    const key = `${incident.hazardRevision}|${incident.closureRevision}`;
+    const cached = this.hazardMapCache.get(incident);
+    if (cached?.key === key) return cached.value;
+    const { hazardBlocked } = this.hazardEdges(incident);
+    const value = { blockedEdgeIds: [...hazardBlocked].sort(), closedEdgeIds: [...incident.closedEdges.keys()].sort(), revision: incident.hazardRevision };
+    this.hazardMapCache.set(incident, { key, value });
+    return value;
+  }
+
+  constraintsFor(incident: Incident, exclude?: Participant): RoutingConstraints {
+    const { hazardBlocked, hazardMargin } = this.hazardEdges(incident);
     const edgeLoad = new Map<string, number>();
     const assemblyLoad = new Map<string, number>();
     for (const participant of this.participantsOf(incident)) {
@@ -823,8 +860,6 @@ export class IncidentService {
       if (goal) assemblyLoad.set(goal, (assemblyLoad.get(goal) ?? 0) + 1);
     }
     if (incident.mode === "simulation" && incident.simWorld) {
-      incident.simWorld.blocked.forEach((edgeId) => hazardBlocked.add(edgeId));
-      incident.simWorld.margins.forEach((seconds, edgeId) => hazardMargin.set(edgeId, Math.max(hazardMargin.get(edgeId) ?? 0, seconds)));
       // People the simulation sees on/at a passage. Dividing by LOAD_WEIGHT makes their cost term
       // exactly people ÷ capacity = seconds to clear (weight 1.0), unlike advised-but-not-yet-there
       // participants who count at LOAD_WEIGHT.
@@ -1040,6 +1075,7 @@ export class IncidentService {
         arrival: participant.arrival, helpRequestedAt: participant.helpRequestedAt,
       },
       advice: participant.advice,
+      hazards: incident && incident.phase !== "ended" ? this.hazardMap(incident) : null,
     };
   }
 

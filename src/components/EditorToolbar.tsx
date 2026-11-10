@@ -1,4 +1,9 @@
 import { useMapperStore } from "../store";
+import { openEditorDemo } from "./EditorDemo";
+import { EditorSimStatus } from "./EditorSimStatus";
+import { startAutoEditorDemo } from "./AutoEditorDemo";
+import { useEffect } from "react";
+import { modelPhysics } from "../simulation/modelPhysics";
 import type { TransformMode } from "../types";
 
 const tools: Array<{ id: TransformMode; label: string; key: string }> = [
@@ -17,6 +22,9 @@ export function deleteEditorSelection() {
 }
 export function EditorToolbar() {
   const state = useMapperStore();
+  // Capture the wall/floor model while the editor shows the whole building (needed to check moved
+  // points and new passages later, even if the user then switches to a single floor).
+  useEffect(() => { modelPhysics(); }, []);
   const node = state.annotations.find((item) => item.id === state.selectedAnnotationId);
   const object = state.modelObjects.find((item) => item.id === state.selectedObjectId);
   const objectEdit = state.objects[state.selectedObjectId ?? ""];
@@ -31,7 +39,7 @@ export function EditorToolbar() {
     state.setTransformMode("translate");
     state.requestCameraFocus([0, 1, 0]);
   };
-  return <div className="editor-transform-bar" role="toolbar" aria-label="เครื่องมือแก้ไข 3 มิติ">
+  return <div className="editor-transform-bar" role="toolbar" aria-label="เครื่องมือแก้ไข 3 มิติ" data-camera-inset="top">
     <div className="editor-transform-context"><span className="editor-context-dot" /><strong title={selectionName}>{selectionName}</strong><small>{locked ? "ล็อกอยู่" : state.transformTarget === "model" ? "Calibration" : hasSelection ? "พร้อมแก้ไข" : "3D EDITOR"}</small></div>
     <div className="editor-transform-controls">
     <select aria-label="เป้าหมายเครื่องมือ 3 มิติ" value={state.transformTarget} onChange={(event) => state.setTransformTarget(event.target.value as "selection" | "model")}>
@@ -39,6 +47,9 @@ export function EditorToolbar() {
     </select>
     <div className="editor-tool-group">{tools.map((tool) => <button type="button" key={tool.id} aria-pressed={state.transformMode === tool.id} onClick={() => state.setTransformMode(tool.id)} title={tool.key}>{tool.label}<kbd>{tool.key}</kbd></button>)}</div>
     <button type="button" aria-pressed={state.transformSpace === "local"} onClick={() => useMapperStore.setState({ transformSpace: state.transformSpace === "world" ? "local" : "world" })}>{state.transformSpace === "local" ? "แกน Local" : "แกน World"}</button>
+    <EditorSimStatus />
+    <button type="button" className="editor-demo-launch is-auto" data-guide-target="auto-demo" onClick={() => startAutoEditorDemo("editor")} title="ระบบแก้ไขให้ดูเองทีละขั้นบนสำเนาชั่วคราว พร้อมจัดกล้องอัตโนมัติ">▶ ชมการสาธิตอัตโนมัติ</button>
+    <button type="button" className="editor-demo-launch" onClick={openEditorDemo} title="ดูระบบปักไฟ กำหนดพื้นที่ห้ามผ่าน ปิดทาง และกำหนดคน แล้วจำลองให้ดูทีละขั้น">▶ สาธิตการแก้ไข</button>
     <button type="button" onClick={addBox}>＋ กล่อง</button>
     <button type="button" disabled={(!node && !object) || Boolean(locked)} title="ทำสำเนา (Ctrl+D)" onClick={() => {
       if (node) state.duplicateAnnotation(node.id);

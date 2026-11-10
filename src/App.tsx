@@ -6,6 +6,8 @@ import { EditorToolbar, deleteEditorSelection } from "./components/EditorToolbar
 import { AnnotationDialog } from "./components/AnnotationDialog";
 import { ShortcutsModal } from "./components/GuideModals";
 import { UserGuide } from "./components/UserGuide";
+import { EditorDemo } from "./components/EditorDemo";
+import { AutoEditorDemo, recoverInterruptedDemo } from "./components/AutoEditorDemo";
 import { InspectorPanel } from "./components/InspectorPanel";
 import { LeftToolbar } from "./components/LeftToolbar";
 import { SceneOverlays, Toasts } from "./components/Overlays";
@@ -18,6 +20,7 @@ import { useMapperStore } from "./store";
 import { SimulationDashboard } from "./simulation/SimulationDashboard";
 import { useEvacuationStore } from "./simulation/simulationStore";
 import { useRoleplayStore } from "./roleplay/roleplayStore";
+import { PresentationHost } from "./present/PresentationHost";
 
 // The roleplay UI (phone, setup, results) loads only when the mode is opened.
 const RoleplayHost = lazy(() => import("./roleplay/RoleplayHost").then((module) => ({ default: module.RoleplayHost })));
@@ -71,6 +74,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // A demo interrupted by a crash or reload: put the user's map back first.
+    if (recoverInterruptedDemo()) useMapperStore.getState().addToast("info", "คืนผังของคุณหลังการสาธิตที่ถูกขัดจังหวะ");
     void restoreWorkspace().catch((error) => useMapperStore.getState().addToast("error", error instanceof Error ? error.message : "คืนค่าโปรเจกต์ไม่สำเร็จ"));
   }, []);
 
@@ -150,12 +155,13 @@ export default function App() {
           <div className="viewport-shell simulation-viewport-shell">
             <SceneCanvas cinematicIntro={cinematicIntro} />
             <SceneOverlays />
-            <SimulationDashboard tutorialActive={tutorialActive} onStartTutorial={startTutorial} onEndTutorial={() => setTutorialActive(false)} />
+            <SimulationDashboard tutorialActive={tutorialActive} introActive={cinematicIntro} onStartTutorial={startTutorial} onEndTutorial={() => setTutorialActive(false)} />
             {roleplayOn && <Suspense fallback={<div className="rp-toast" role="status">กำลังเปิดโหมดสวมบท…</div>}><RoleplayHost /></Suspense>}
             <CinematicIntro active={cinematicIntro} onComplete={finishCinematicIntro} />
           </div>
         </section>
         {!cinematicIntro && <Toasts />}
+        <PresentationHost />
       </main>
     );
   }
@@ -169,6 +175,8 @@ export default function App() {
           <SceneCanvas />
           <SceneOverlays />
           <EditorToolbar />
+          <EditorDemo />
+          <AutoEditorDemo />
           <button type="button" className="sim-return-button" onClick={() => useEvacuationStore.getState().setWorkMode("simulation")}>← กลับระบบจำลองการอพยพ</button>
           {modelKind === "generated" && <details className="editor-building-options"><summary>ตัวเลือกอาคารตัวอย่าง</summary><BuildingTwinPanel /></details>}
         </div>
@@ -182,6 +190,7 @@ export default function App() {
       <UserGuide open={guideOpen} onClose={() => setGuideOpen(false)} onStartTutorial={startTutorial} />
       <ShortcutsModal />
       <Toasts />
+      <PresentationHost />
     </main>
   );
 }

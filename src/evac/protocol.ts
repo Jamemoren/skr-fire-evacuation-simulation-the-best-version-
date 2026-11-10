@@ -184,6 +184,11 @@ export interface ParticipantView {
     helpRequestedAt: number | null;
   };
   advice: RouteAdvice | null;
+  /**
+   * Passages the system currently knows are unsafe (sensor alarm, or the 3D simulation's fire in
+   * simulation rounds) or closed by staff — drawn on the phone's plan. Optional for older servers.
+   */
+  hazards?: { blockedEdgeIds: string[]; closedEdgeIds: string[]; revision: number } | null;
 }
 
 export type DeliveryStage = "accepted" | "sent" | "received" | "viewed" | "confirmed";

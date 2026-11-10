@@ -2,7 +2,7 @@
  * First-person control of the roleplay character (inside the 3D canvas).
  *
  * - W/S/A/D move, mouse looks (Pointer Lock; drag-to-look when the browser refuses it), hold Shift
- *   to hurry. Diagonals are normalised; keys are released on blur/visibility change and ignored
+ *   to run (4.4 m/s; walking 1.35 m/s). Diagonals are normalised; keys are released on blur/visibility change and ignored
  *   while typing.
  * - Every step goes through PlayerNavigator: the same walkways, stairs and walls as the simulated
  *   people, real height from the walkway (no flying, no falling through floors, no teleport).
@@ -25,7 +25,8 @@ import type { Vec3 } from "../simulation/types";
 import { exposeRoleplayForQa } from "./lifecycle";
 
 const WALK_SPEED = 1.35;
-const HURRY_SPEED = 2.6;
+/** Shift = run. 4.4 m/s is a fast run (walk 1.35); still sub-stepped at 6 cm, so never through a wall. */
+const HURRY_SPEED = 4.4;
 const LOOK_SENSITIVITY = 0.0022;
 const BODY_RADIUS = 0.42;
 const GUIDE_EVERY_S = 0.15;

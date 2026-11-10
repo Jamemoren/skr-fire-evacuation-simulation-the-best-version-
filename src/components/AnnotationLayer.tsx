@@ -2,6 +2,7 @@ import { Html } from "@react-three/drei";
 import { useMemo } from "react";
 import { ANNOTATION_COLORS, ANNOTATION_ICONS, ANNOTATION_LABELS } from "../constants";
 import { useMapperStore } from "../store";
+import { useBuilding1Store } from "../building1/building1Store";
 
 export function AnnotationLayer() {
   const annotations = useMapperStore((state) => state.annotations);
@@ -10,6 +11,9 @@ export function AnnotationLayer() {
   const showLabels = useMapperStore((state) => state.showLabels);
   const hiddenTypes = useMapperStore((state) => state.hiddenTypes);
   const handleAnnotationClick = useMapperStore((state) => state.handleAnnotationClick);
+  // Single-floor / interior view: only that floor's markers (plus ones without a floor), so the
+  // floor being edited is not buried under the markers of every other floor.
+  const floorOnly = useBuilding1Store((state) => (state.viewMode === "single-floor" || state.viewMode === "interior" ? state.selectedFloor : null));
 
   const ordered = useMemo(
     () => [...annotations].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
@@ -20,6 +24,7 @@ export function AnnotationLayer() {
     <group name="SEMANTIC_ANNOTATIONS" userData={{ semanticOverlay: true }}>
       {ordered.map((annotation) => {
         if (!annotation.visible || hiddenTypes.includes(annotation.type)) return null;
+        if (floorOnly !== null && annotation.floor != null && annotation.floor !== floorOnly) return null;
         const color = ANNOTATION_COLORS[annotation.type];
         const selected = selectedAnnotationId === annotation.id;
         const connecting = connectFromId === annotation.id;

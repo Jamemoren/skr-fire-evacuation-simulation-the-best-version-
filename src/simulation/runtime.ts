@@ -25,6 +25,7 @@ import {
   traversalPoints,
   walkY,
 } from "./graph";
+import { applyGraphEdits } from "./graphEdits";
 import type {
   AgentPhase,
   AgentDecisionState,
@@ -51,10 +52,12 @@ import type {
 import { PEDESTRIAN_RADIUS, movementSegmentIsContinuous, pointClearsExteriorBuilding, pointInsideWalkableCorridor, walkableHalfWidth } from "./walkable";
 import { ALL_CLASSROOMS, campusBuildingAt, BLOCK_LEVELS } from "./campusData";
 import { fieldOffset } from "../building1/siteLayout";
-import { flameCellsAt, flameClearanceAt, fireHasStarted, fireMayAffectPoint, spreadProgressAt } from "./fireField";
+import { flameCellsAt, flameClearanceAt, fireHasStarted, fireMayAffectPoint, spreadProgressAt, type FlameCell } from "./fireField";
 import { edgeAllowsDetour, planFireDetour, segmentInsideWalkway } from "./localNavigation";
 import { normalizeStudentPopulation, studentStartPosition } from "./studentPlacement";
 import { normalizeSeed, seeded01, hashString } from "./seededRandom";
+import { placeNameTh } from "./placeNames";
+import { BRIDGE_EDGE_ID, BRIDGE_LABEL_TH } from "./bridge";
 import { describeReasonTh, shortReasonTh, BEHAVIOR_LABEL_TH, AWARENESS_LABEL_TH, type AgentBehaviorState, type AwarenessSource, type DecisionReason, type DecisionReasonCode } from "./agentReasons";
 import { neighbouringReportZones, nodeBuilding, perceptionTopology, reportZoneOf, spacesInView, type PerceptionTopology } from "./agentPerception";
 import { createEdgeQueue, expectedQueueWait, joinQueue, leaveQueue, refillEdgeQueue, tryAdmit, tryAdmitCompetitive, type EdgeQueueState } from "./edgeQueue";
@@ -140,6 +143,8 @@ interface RuntimeAgent {
   /** Recent hazard stops in front of a passage (edge, time, what was ahead). Detects a person who
    * would otherwise step up to the same doorway and back again every second. */
   hazardStops?: Array<{ edgeId: string; at: number; hazard: "smoke" | "heat" | "fire" }>;
+  /** Passages that turned this person back more than once: avoided when planning until the time stored. */
+  hazardAvoid?: Map<string, number>;
   /** Cached "this passage leads out of the smoke" verdict (re-evaluated at most once a second). */
   smokeExitCache?: { edgeId: string; segment: number; at: number; ok: boolean };
   /** Directed queue the person is physically waiting in, if any. */
@@ -221,6 +226,11 @@ const SMOKE_EXIT_HORIZON_M = 25;
 const HAZARD_STOP_WINDOW_S = 30;
 const HAZARD_STOP_REPEAT = 3;
 const HAZARD_HOLD_RETRY_S = 4;
+// A long passage (a stair flight) can take longer than HAZARD_STOP_WINDOW_S to walk down and back,
+// so the second turn-back on the same passage within this window is remembered for planning.
+const HAZARD_MEMORY_WINDOW_S = 240;
+const HAZARD_MEMORY_REPEAT = 2;
+const HAZARD_AVOID_SECONDS = 180;
 
 export const FIXED_SIMULATION_DT = 0.1;
 /** Reports and queue observations lose relevance with age (s). */
@@ -800,6 +810,10 @@ export class EvacuationRuntime {
   /** Ranking of the people pressing at each opening, rebuilt once per fixed step. */
   private mouthRanking = new Map<string, { time: number; order: number[]; contenders: number; radius: number }>();
   private fireBuildingsCache = new Map<string, string[]>();
+  /** Fast front for fireBuildings(): same key (id + exact position) without building a string per call. */
+  private fireBuildingsFast = new WeakMap<FireSource, { id: string; x: number; y: number; z: number; value: string[] }>();
+  /** Per-step facts about a fire that are identical for every person (flame cells, their floors, view spaces). */
+  private fireStepInfo = new WeakMap<FireSource, { time: number; attach?: string; parentId?: string; cells: FlameCell[]; floors: Set<number>; spaces: string[] }>();
   /** People standing still (queueing/holding) by 1 m cell, rebuilt every step. */
   private stationaryGrid = new Map<number, RuntimeAgent[]>();
   /** Distance left along the incoming walkway for each waiting person (rebuilt every step). */
@@ -897,12 +911,14 @@ export class EvacuationRuntime {
     this.config = {
       ...DEFAULT_CONFIG,
       ...config,
-      populationTarget: normalizeStudentPopulation(config.populationTarget ?? TARGET_POPULATION),
+      populationTarget: config.roomPopulation
+        ? normalizeStudentPopulation(activeRoomPopulation(0, config.roomPopulation).reduce((sum, item) => sum + item.count, 0))
+        : normalizeStudentPopulation(config.populationTarget ?? TARGET_POPULATION),
       walkingSpeed: normalizeWalkingSpeed(config.walkingSpeed),
       seed: normalizeSeed(config.seed ?? DEFAULT_CONFIG.seed, 1),
       decisionMode: config.decisionMode === "coordinated" ? "coordinated" : "occupant",
     };
-    this.graph = createEvacuationGraph();
+    this.graph = applyGraphEdits(createEvacuationGraph(), this.config.graphEdits);
     this.edgeMap = new Map(this.graph.edges.map((edge) => [edge.id, edge]));
     this.nodeMap = new Map(this.graph.nodes.map((node) => [node.id, node]));
     this.outgoingByNode = new Map();
@@ -913,6 +929,7 @@ export class EvacuationRuntime {
     this.perception = perceptionTopology(this.graph);
     // Closures that refer to passages missing from this graph cannot affect anybody.
     [...this.closedEdges].forEach((edgeId) => { if (!this.edgeMap.has(edgeId)) this.closedEdges.delete(edgeId); });
+    for (const edgeId of this.config.editorClosedEdgeIds ?? []) if (this.edgeMap.has(edgeId)) this.closedEdges.add(edgeId);
     // The allocation is the *coordinated* plan: whole-building information, system optimum.
     // Occupant mode keeps only its class-level assembly-area assignment (taught in drills) and
     // lets every person choose the route from what they know.
@@ -1486,7 +1503,7 @@ export class EvacuationRuntime {
       groups.push({ id: `b${building}-stair-${stair}`, label: `บันได ${stair + 1} อาคาร ${building}`, edgeIds: edges.filter((edge) => edge.id.startsWith(`campus-b${building}-stair-${stair}-down-`)).map((edge) => edge.id) });
       groups.push({ id: `b${building}-exit-${stair}`, label: `ทางออก ${stair + 1} อาคาร ${building}`, edgeIds: edges.filter((edge) => edge.id === `campus-b${building}-exit-door-${stair}`).map((edge) => edge.id) });
     }
-    groups.push({ id: "b34-bridge", label: "ทางเชื่อมอาคาร 3–4 ชั้น 4", edgeIds: edges.filter((edge) => edge.id === "campus-straight-bridge-level-4").map((edge) => edge.id) });
+    groups.push({ id: "b34-bridge", label: BRIDGE_LABEL_TH, edgeIds: edges.filter((edge) => edge.id === BRIDGE_EDGE_ID).map((edge) => edge.id) });
     return groups.filter((group) => group.edgeIds.length).map((group) => ({ ...group, closed: group.edgeIds.every((edgeId) => this.closedEdges.has(edgeId)) }));
   }
 
@@ -1583,6 +1600,7 @@ export class EvacuationRuntime {
       attachmentKind: attachment?.type,
       spreadPath: options.spreadPath?.map((point) => [...point] as Vec3),
       spreadTravelStartTime: options.spreadTravelStartTime,
+      ...(options.sourceMarkerId ? { sourceMarkerId: options.sourceMarkerId } : {}),
     };
     this.fires.push(fire);
     const travelling = fire.origin === "spread" && fire.spreadTravelStartTime != null && fire.startTime > this.time;
@@ -1974,6 +1992,14 @@ export class EvacuationRuntime {
    * along the bridge and smell its smoke, but nobody in a third building can.
    */
   private fireBuildings(fire: FireSource): string[] {
+    const fast = this.fireBuildingsFast.get(fire);
+    if (fast && fast.id === fire.id && fast.x === fire.position[0] && fast.y === fire.position[1] && fast.z === fire.position[2]) return fast.value;
+    const value = this.fireBuildingsSlow(fire);
+    this.fireBuildingsFast.set(fire, { id: fire.id, x: fire.position[0], y: fire.position[1], z: fire.position[2], value });
+    return value;
+  }
+
+  private fireBuildingsSlow(fire: FireSource): string[] {
     const cacheKey = `${fire.id}@${fire.position.join(",")}`;
     const cached = this.fireBuildingsCache.get(cacheKey);
     if (cached) return cached;
@@ -2006,6 +2032,16 @@ export class EvacuationRuntime {
     return [...result];
   }
 
+  /** Flame cells, the floors they are on, and the spaces they are visible from — once per fire per step. */
+  private fireInfoAt(fire: FireSource) {
+    const info = this.fireStepInfo.get(fire);
+    if (info && info.time === this.time && info.attach === fire.attachmentNodeId && info.parentId === fire.parentId) return info;
+    const cells = flameCellsAt(fire, this.time);
+    const next = { time: this.time, attach: fire.attachmentNodeId, parentId: fire.parentId, cells, floors: new Set(cells.map((cell) => cell.floor)), spaces: this.fireSpaceKeys(fire) };
+    this.fireStepInfo.set(fire, next);
+    return next;
+  }
+
   private agentBuilding(agent: RuntimeAgent) {
     return agent.hasExitedBuilding ? "site" : nodeBuilding(this.nodeMap.get(agent.currentNodeId));
   }
@@ -2029,12 +2065,12 @@ export class EvacuationRuntime {
       }
       const fireBuildings = this.fireBuildings(fire);
       const outdoorFire = fireBuildings[0] === "site";
-      const visibleCells = flameCellsAt(fire, this.time);
+      const info = this.fireInfoAt(fire);
+      const visibleCells = info.cells;
       // Smoke and heat cues travel only inside the same building and floor (or open air).
       const sameFloor = outdoorFire
         ? building === "site" || agent.floor <= 1
-        : fireBuildings.includes(building) && visibleCells.some((cell) => cell.floor === agent.floor);
-      const horizontalDistance = visibleCells.reduce((nearest, cell) => Math.min(nearest, Math.hypot(cell.position[0] - agent.position[0], cell.position[2] - agent.position[2])), Infinity);
+        : fireBuildings.includes(building) && info.floors.has(agent.floor);
       const localRisk = sameFloor ? pointRisk(agent.position, [fire], this.time) : { fire: 0, smoke: 0, heat: 0, blocked: false };
       const smokeSignal = localRisk.smoke * agent.smokeSensitivity;
       const heatSignal = localRisk.heat * agent.heatSensitivity;
@@ -2043,9 +2079,11 @@ export class EvacuationRuntime {
       const sensedHeat = sameFloor && heatSignal >= agent.heatDetectionThreshold;
       const painfulHeat = sameFloor && heatSignal >= agent.heatDetectionThreshold * 3.1;
       const flameSightRange = Math.max(4.5, Math.min(10.5, fireRadiusAt(fire, this.time) + 4.5)) * Math.max(0.45, agent.visibility);
-      const fireSpaces = this.fireSpaceKeys(fire);
-      const inLineOfSight = Boolean(topology) && spaces.some((space) => fireSpaces.some((target) => spacesInView(topology!, space, target)));
-      const directlySawFlame = sameFloor && inLineOfSight && horizontalDistance <= flameSightRange && localRisk.fire > 0.025;
+      const fireSpaces = info.spaces;
+      // Cheap tests first; the nearest-flame distance is only needed when the rest already hold.
+      const directlySawFlame = sameFloor && localRisk.fire > 0.025
+        && Boolean(topology) && spaces.some((space) => fireSpaces.some((target) => spacesInView(topology!, space, target)))
+        && visibleCells.reduce((nearest, cell) => Math.min(nearest, Math.hypot(cell.position[0] - agent.position[0], cell.position[2] - agent.position[2])), Infinity) <= flameSightRange;
       const previousKnowledge = agent.fireKnowledge.get(fire.id);
       // Approximate smoke reaching the immediately connected landing above a burning stair.
       // This is a local cue, not global knowledge of fires on other floors: require the actual
@@ -2331,8 +2369,21 @@ export class EvacuationRuntime {
   private noteHazardStop(agent: RuntimeAgent, edgeId: string, hazard: "smoke" | "heat" | "fire") {
     const log = (agent.hazardStops ??= []);
     log.push({ edgeId, at: this.time, hazard });
-    while (log.length && this.time - log[0].at > HAZARD_STOP_WINDOW_S) log.shift();
+    while (log.length && this.time - log[0].at > HAZARD_MEMORY_WINDOW_S) log.shift();
     if (log.length > 24) log.splice(0, log.length - 24);
+    // Turned back from the same passage again: plan around it for a while (what a person would do
+    // after walking into the same smoke twice), instead of walking down and back up indefinitely.
+    if (log.filter((stop) => stop.edgeId === edgeId).length >= HAZARD_MEMORY_REPEAT) {
+      (agent.hazardAvoid ??= new Map()).set(edgeId, this.time + HAZARD_AVOID_SECONDS);
+    }
+  }
+
+  /** Passages this person currently plans around (see noteHazardStop); expired ones are forgotten. */
+  private hazardAvoidance(agent: RuntimeAgent): string[] {
+    const avoid = agent.hazardAvoid;
+    if (!avoid?.size) return [];
+    avoid.forEach((until, edgeId) => { if (until <= this.time) avoid.delete(edgeId); });
+    return [...avoid.keys()];
   }
 
   /**
@@ -3199,9 +3250,15 @@ export class EvacuationRuntime {
         const spaceFree = this.entranceHasSpace(edge, activeEdgeCounts, agent, currentNodeId, agent.route.nodeIds[agent.edgeIndex + 1]);
         if (!spaceFree) joinQueue(queueState, agent.id);
         const node = nodeMap.get(currentNodeId);
+        const entering = edge;
         const atEntrance = (id: number) => {
           const person = this.agents[id];
           if (!person || !node) return true;
+          // Someone already outside who switched to another field gate on open ground joins the new
+          // approach from where they stand (prepareEdge joins a forward exterior-safe waypoint); the
+          // exit-door node is behind them, and waiting to be "at" it would hold them forever.
+          if (person.hasExitedBuilding && (entering.kind === "outdoor" || entering.kind === "assembly")
+            && distance3(person.position, node.position) > Math.max(0.85, walkableHalfWidth(entering) + 0.4)) return true;
           // Someone still in the classroom steps off from their seat along the room's own path.
           const incoming = this.incomingPassage(person);
           if (!incoming) return true;
@@ -3871,9 +3928,23 @@ export class EvacuationRuntime {
     if (this.playerBody && !squeezing && Math.abs(this.playerBody[1] - agent.position[1]) <= 1.2) bodies.push(this.playerBody);
     // Someone just let through and still walking out of this crowd is in the way too.
     const leaving = this.forwardGapByAgentCache.get(agent.id) ?? Infinity;
+    // Exactly min(Math.hypot(...)) over the list, without a hypot per person: find the smallest
+    // squared distance, then take hypot only for the (near-)tied finalists. hypot and the squared
+    // sum differ by at most a few ulps, far inside the 1e-9 relative margin.
     const nearest = (list: Vec3[], point: Vec3) => {
+      let bestSq = Infinity;
+      for (const other of list) {
+        const dx = other[0] - point[0], dz = other[2] - point[2];
+        const sq = dx * dx + dz * dz;
+        if (sq < bestSq) bestSq = sq;
+      }
+      if (bestSq === Infinity) return Infinity;
+      const limit = bestSq * (1 + 1e-9) + 1e-300;
       let best = Infinity;
-      for (const other of list) best = Math.min(best, Math.hypot(other[0] - point[0], other[2] - point[2]));
+      for (const other of list) {
+        const dx = other[0] - point[0], dz = other[2] - point[2];
+        if (dx * dx + dz * dz <= limit) best = Math.min(best, Math.hypot(dx, dz));
+      }
       return best;
     };
     // Local walking direction at this person's own spot (never a direction from elsewhere on the
@@ -4078,8 +4149,18 @@ export class EvacuationRuntime {
         let nearest: RuntimeAgent | null = null;
         let nearestDistance = reach;
         const neighbours: RuntimeAgent[] = [];
-        for (let ox = -1; ox <= 1; ox += 1) for (let oy = -1; oy <= 1; oy += 1) for (let oz = -1; oz <= 1; oz += 1) {
-          for (const other of bodies.get(stationaryCellKey(cx + ox, cy + oy, cz + oz)) ?? []) {
+        // Only people within reach + maxStep (< 0.2 m) matter, so a 1 m neighbour cell is visited only
+        // when this person stands that close to its border. Same cells in the same order as before for
+        // anyone who could match; the rest could never pass the distance test.
+        const span = reach + maxStep;
+        const fx = agent.position[0] - cx, fz = agent.position[2] - cz;
+        for (let ox = -1; ox <= 1; ox += 1) {
+          if ((ox === -1 && fx > span) || (ox === 1 && fx < 1 - span)) continue;
+          for (let oy = -1; oy <= 1; oy += 1) for (let oz = -1; oz <= 1; oz += 1) {
+          if ((oz === -1 && fz > span) || (oz === 1 && fz < 1 - span)) continue;
+          const cell = bodies.get(stationaryCellKey(cx + ox, cy + oy, cz + oz));
+          if (!cell) continue;
+          for (const other of cell) {
             if (other === agent || (!agent.edgeEntered && other.edgeEntered)
               || (other.edgeEntered === agent.edgeEntered && other.id > agent.id)
               || other.status === "arrived" || other.status === "incapacitated") continue;
@@ -4087,6 +4168,7 @@ export class EvacuationRuntime {
             const distance = Math.hypot(other.position[0] - agent.position[0], other.position[2] - agent.position[2]);
             if (distance <= reach + maxStep) neighbours.push(other);
             if (distance < nearestDistance) { nearest = other; nearestDistance = distance; }
+          }
           }
         }
         if (!nearest) continue;
@@ -4494,6 +4576,8 @@ export class EvacuationRuntime {
       && (node.id === agent.route.goalId || this.goalCount(node.id) < node.capacity)).map((node) => node.id);
     const routeEdgeMap = routeEdgeMapOverride ?? this.edgeMap;
     const knownClosed = this.planningClosures(agent);
+    const avoiding = this.hazardAvoidance(agent);
+    avoiding.forEach((edgeId) => knownClosed.add(edgeId));
     const reserved = coordinated ? (reservedOverride ?? this.planningReservedCache) : this.perceivedReserved(agent);
     const riskBand = Math.round(agent.riskAversion * 2) / 2;
     const smokeBand = Math.round(agent.smokeSensitivity * 2) / 2;
@@ -4591,6 +4675,13 @@ export class EvacuationRuntime {
     }
     agent.lastRerouteAt = this.time;
     agent.lastEvaluationAt = this.time;
+    if ((!nextPath || nextPath.edgeIds.length === 0) && avoiding.length) {
+      // Planning around the remembered passages leaves no way at all: forget them and plan again
+      // with them (a smoky passage is better than none); the hold rule still slows repeated tries.
+      agent.hazardAvoid?.clear();
+      agent.noRouteRetryAt = this.time + HAZARD_HOLD_RETRY_S;
+      return null;
+    }
     if (!nextPath || nextPath.edgeIds.length === 0) {
       // Nothing usable with what this person knows. Back off exponentially (1.5 → 24 s) so the
       // failure is not recomputed every frame, and hold position meanwhile.
@@ -5050,12 +5141,13 @@ export class EvacuationRuntime {
       if (campus) return `บันได ${Number(campus[2]) + 1} อาคาร ${campus[1]} ชั้น ${campus[3]}→${Number(campus[3]) - 1}`;
       return `บันได ${edge.id.replace("edge-stair-", "")}`;
     }
-    if (edge.id === "campus-straight-bridge-level-4") return "ทางเชื่อมอาคาร 3–4 ชั้น 4";
-    if (edge.kind === "room") return `ประตูห้อง ${edge.from.replace("b1-", "")}`;
-    if (edge.kind === "corridor" || edge.kind === "junction") return `ทางเดินชั้น ${edge.floorFrom}`;
-    if (edge.kind === "outdoor") return "ทางออก → สนามฟุตบอล";
-    if (edge.kind === "assembly") return `Assembly ${edge.to.replace("sim-zone-", "Zone ").toUpperCase()}`;
-    return edge.id;
+    if (edge.id === BRIDGE_EDGE_ID) return BRIDGE_LABEL_TH;
+    // Names people can read (from the graph's own place names), never internal ids.
+    const from = placeNameTh(this.nodeMap.get(edge.from)?.name ?? ""), to = placeNameTh(this.nodeMap.get(edge.to)?.name ?? "");
+    if (edge.kind === "room") return from ? `ประตู ${from}` : "ประตูห้องเรียน";
+    if (edge.kind === "corridor" || edge.kind === "junction") return to && !/^ประตู/.test(to) ? to : from || `ทางเดินชั้น ${edge.floorFrom}`;
+    if (edge.kind === "assembly") return to ? `เข้า ${to}` : "เข้าจุดรวมพล";
+    return from && to ? `${from} → ${to}` : `ทางเดินชั้น ${edge.floorFrom}`;
   }
 
   getFireVisuals() {
@@ -5074,7 +5166,7 @@ export class EvacuationRuntime {
   }
 
   getInitialPopulationSummary() {
-    return activeRoomPopulation(this.config.populationTarget);
+    return activeRoomPopulation(this.config.populationTarget, this.config.roomPopulation);
   }
 }
 

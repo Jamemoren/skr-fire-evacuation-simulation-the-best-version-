@@ -447,7 +447,8 @@ function DoorLeaf({
         <boxGeometry args={[1.24, 0.14, 0.14]} />
         <meshStandardMaterial color={FRAME} roughness={0.6} />
       </mesh>
-      <group ref={hingeRef} position={[-0.51, 0, 0.05]} rotation-y={initiallyOpen.current ? -Math.PI * 0.96 : 0}>
+      {/* The leaf swings open for an evacuation: the editor's wall check treats it as passable. */}
+      <group ref={hingeRef} position={[-0.51, 0, 0.05]} rotation-y={initiallyOpen.current ? -Math.PI * 0.96 : 0} userData={{ passableForWalking: true }}>
         <mesh position={[0.51, -0.04, 0]}>
           <boxGeometry args={[1.02, 2.26, 0.09]} />
           <meshStandardMaterial color={color} roughness={0.58} />
@@ -673,6 +674,8 @@ function StaticBoxBatcher({ rootRef, enabled }: { rootRef: React.RefObject<THREE
           source.matrixAutoUpdate = false;
           source.raycast = () => {};
           source.visible = false;
+          // Still the real geometry for the editor's wall check (the batch has no door tags).
+          source.userData.batchedSource = true;
           hiddenSources.push(source);
         });
         sourceMeshes += entry.sources.length;
@@ -715,6 +718,7 @@ function StaticBoxBatcher({ rootRef, enabled }: { rootRef: React.RefObject<THREE
       window.clearTimeout(settleTimer);
       hiddenSources.forEach((mesh) => {
         mesh.visible = true;
+        delete mesh.userData.batchedSource;
         mesh.raycast = originalRaycasts.get(mesh)!;
         mesh.matrixAutoUpdate = originalMatrixUpdates.get(mesh)!;
       });
@@ -1849,7 +1853,8 @@ function ClassroomVolumes() {
   const showLabels = useBuilding1Store((state) => state.showRoomLabels);
   const explode = useBuilding1Store((state) => state.explodeFloors);
   return (
-    <group name="B1_ROOM_SEMANTICS">
+    // Selection volumes, not walls: left out of the editor's physical wall check.
+    <group name="B1_ROOM_SEMANTICS" userData={{ noPhysics: true }}>
       {ROOM_MODULES.map((room) => {
         if (!visibleFloor(room.floor, mode, selected)) return null;
         const extra = yOffset(room.floor, explode);
